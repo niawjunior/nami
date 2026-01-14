@@ -3,3 +3,4 @@
 .next
 *.env
 dist
+out

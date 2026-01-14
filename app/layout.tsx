@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { cn } from '@/lib/utils'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,7 +21,9 @@ export default function RootLayout({
       <body className={cn(inter.className, "bg-background text-foreground antialiased h-screen w-screen overflow-hidden flex flex-col")}>
         <div className="titlebar" />
         <div className="flex-1 overflow-hidden pt-10">
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
         </div>
       </body>
     </html>
