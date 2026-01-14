@@ -52,18 +52,31 @@ function ChatSession({ apiPort }: { apiPort: number }) {
               const input = (part as any).input;
               
               // Handle new object format (from limited results)
-              if (output && Array.isArray(output.files)) {
+              // Instead of using limited AI response, fetch FULL list via IPC
+              if (output && input?.path) {
                   lastProcessedMsgId.current = lastMsg.id;
-                  setActiveFiles(output.files);
-                  if (input?.path) {
-                      setCurrentPath(input.path);
-                  }
+                  setCurrentPath(input.path);
+                  
                   // Extract filter extensions
-                  if (input?.extensions && Array.isArray(input.extensions)) {
-                      setActiveFilters(input.extensions);
-                  } else {
-                      setActiveFilters([]);
-                  }
+                  const extensions = input?.extensions && Array.isArray(input.extensions) ? input.extensions : [];
+                  setActiveFilters(extensions);
+                  
+                  // Fetch full file list via IPC (not limited like AI response)
+                  window.electron.listFiles({ path: input.path, extensions })
+                      .then((res: any) => {
+                          if (res.success && Array.isArray(res.files)) {
+                              setActiveFiles(res.files);
+                          } else if (Array.isArray(output.files)) {
+                              // Fallback to AI response if IPC fails
+                              setActiveFiles(output.files);
+                          }
+                      })
+                      .catch(() => {
+                          // Fallback to AI response on error
+                          if (Array.isArray(output.files)) {
+                              setActiveFiles(output.files);
+                          }
+                      });
                   return;
               }
 

@@ -63,31 +63,26 @@ app.post('/api/chat', async (c) => {
       messages: coreMessages,
       // @ts-ignore
       experimental_toolCallConfirmation: true,
-      maxSteps: 10, // Enable multi-step calls (required for approval flow)
       system: `You are Nami, an expert file organization AI agent.
       You have access to the user's local file system via tools.
       The user's home directory is: ${os.homedir()}
       
-      RULES:
-      1. ALWAYS verify the file listing before moving or deleting.
-      2. Use the 'trashFile' tool for deletion requests (safety).
-      3. **FILE MANAGER NAVIGATION**: 
-          - Nami has a visual file manager sidebar that shows files.
-          - **NAVIGATION**: When user says "go to", "navigate to", "show me", or "open" a FOLDER, use 'listFiles' to navigate the sidebar. Do NOT use 'openFile' for folders.
-          - 'openFile' should ONLY be used to open FILES (not folders) in external apps (e.g., Preview, VS Code).
-          - **NO TEXT DUPLICATION**: The UI shows file results. Do NOT list files again in text.
-          - Common folders: ~/Desktop, ~/Downloads, ~/Documents
-      4. **EFFICIENCY**:
-          - **COUNTING**: For questions like "how many..." or "count files", use 'countFiles' tool. NEVER use 'listFiles' to count manually.
-          - **VERIFICATION**: To check if a file/folder exists (e.g., "do I have a pdf folder?"), use 'checkFileExists'. Do NOT list all files.
-          - **BATCH OPERATIONS**: When moving, copying, or deleting MULTIPLE files, ALWAYS use batch tools (moveFiles, copyFiles, trashFiles). NEVER call single-file tools in a loop.
-          - **READING**: When reading a specific file by name, use 'readFile' DIRECTLY without listing first.
-          - **NAVIGATION**: Only use 'listFiles' when you need to NAVIGATE, FIND, or SHOW files.
-      5. **SHELL COMMANDS (executeCommand)**:
-          - Use for: git, npm, brew, disk usage (du -sh), file info (stat), zip/unzip, clipboard (pbcopy/pbpaste)
-          - NEVER use for: ls, find (use listFiles instead), rm -rf, sudo, or dangerous commands.
-          - Examples: "git status", "du -sh ~/Downloads", "zip -r archive.zip folder", "stat file.txt"
-      6. Be concise and professional.
+      CRITICAL RULES:
+      1. **EXECUTE ACTIONS DIRECTLY**: When user wants to move, rename, copy, delete, or create → call the action tool IMMEDIATELY. Do NOT call checkFileExists first - the action will fail naturally if the file doesn't exist.
+      2. **RENAMING**: To rename a file/folder, use 'moveFile' with the same directory but new name. Example: rename /path/old to /path/new.
+      3. Use 'trashFile' for deletion requests (moves to trash for safety).
+      4. **FILE MANAGER NAVIGATION**: 
+          - When user says "go to", "show me", or "open" a FOLDER → use 'listFiles' to update the sidebar.
+          - 'openFile' is ONLY for opening FILES in external apps (Preview, VS Code, etc).
+          - The UI displays file results. Do NOT repeat file names in text.
+      5. **EFFICIENCY**:
+          - **COUNTING questions** ("how many..."): use 'countFiles' NOT 'listFiles'.
+          - **BATCH OPERATIONS**: use moveFiles/copyFiles/trashFiles for multiple files. NEVER loop single-file tools.
+          - **checkFileExists**: ONLY use when user explicitly asks "does X exist?" or before creating to avoid overwrite.
+      6. **SHELL COMMANDS (executeCommand)**:
+          - Use for: git, npm, brew, du -sh, stat, zip/unzip, pbcopy
+          - NEVER use for: ls, find, rm -rf, sudo
+      7. Be concise. Complete the user's request in as few steps as possible.
       `,
       tools: {
         listFiles: tool({
