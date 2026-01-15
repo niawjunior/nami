@@ -228,6 +228,45 @@ export function createAITools(deps: ToolDependencies) {
         }
       },
     } as any),
+
+    // ===== PHASE 2: AI INTELLIGENCE TOOLS =====
+
+    findLargeFiles: tool({
+      description: 'Find large files (above a size threshold) in a directory. Useful for disk cleanup.',
+      inputSchema: z.object({
+        path: z.string().describe('The directory to scan'),
+        minSizeMB: z.number().default(100).describe('Minimum file size in MB (default: 100)'),
+        recursive: z.boolean().default(true).describe('Scan subdirectories'),
+      }),
+      execute: async (args) => {
+        const result = await fsTools.findLargeFiles(args);
+        return result;
+      },
+    }),
+
+    getDirectoryStats: tool({
+      description: 'Get comprehensive statistics about a directory: total size, file count, breakdown by type, and oldest/newest files.',
+      inputSchema: z.object({
+        path: z.string().describe('The directory to analyze'),
+      }),
+      execute: async (args) => {
+        const stats = await fsTools.getDirectoryStats(args);
+        return stats;
+      },
+    }),
+
+    findDuplicates: tool({
+      description: 'Find potential duplicate files by comparing file sizes, names, or both.',
+      inputSchema: z.object({
+        path: z.string().describe('The directory to scan'),
+        method: z.enum(['size', 'name', 'both']).default('size').describe('How to detect duplicates'),
+        recursive: z.boolean().default(true).describe('Scan subdirectories'),
+      }),
+      execute: async (args) => {
+        const result = await fsTools.findDuplicates(args);
+        return result;
+      },
+    }),
   };
 }
 

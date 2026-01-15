@@ -319,5 +319,189 @@ export const fsTools = {
       } catch (error: any) {
           throw new Error(`Failed to copy files: ${error.message}`);
       }
-  }
+  },
+
+  // ===== PHASE 2: AI INTELLIGENCE TOOLS =====
+
+  async findLargeFiles({ 
+    path: dirPath, 
+    minSizeMB = 100, 
+    recursive = true 
+  }: { 
+    path: string; 
+    minSizeMB?: number; 
+    recursive?: boolean 
+  }): Promise<{ files: FileEntry[]; totalSize: string }> {
+    const minBytes = minSizeMB * 1024 * 1024;
+    const largeFiles: FileEntry[] = [];
+    
+    async function scan(dir: string) {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          try {
+            if (entry.isDirectory()) {
+              if (recursive) await scan(fullPath);
+            } else {
+              const stats = await fs.stat(fullPath);
+              if (stats.size >= minBytes) {
+                largeFiles.push({
+                  name: entry.name,
+                  path: fullPath,
+                  isDirectory: false,
+                  size: stats.size,
+                  lastModified: stats.mtimeMs,
+                });
+              }
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+    
+    await scan(dirPath);
+    
+    // Sort by size descending
+    largeFiles.sort((a, b) => b.size - a.size);
+    
+    // Calculate total
+    const totalBytes = largeFiles.reduce((sum, f) => sum + f.size, 0);
+    const totalGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+    
+    return {
+      files: largeFiles.slice(0, 20), // Limit for AI context
+      totalSize: `${totalGB} GB in ${largeFiles.length} large files (>${minSizeMB}MB each)`
+    };
+  },
+
+  async getDirectoryStats({ path: dirPath }: { path: string }): Promise<{
+    totalFiles: number;
+    totalFolders: number;
+    totalSize: string;
+    byType: Record<string, { count: number; size: number }>;
+    oldest?: { name: string; date: string };
+    newest?: { name: string; date: string };
+  }> {
+    type DateInfo = { name: string; date: number };
+    let totalFiles = 0;
+    let totalFolders = 0;
+    let totalBytes = 0;
+    const byType: Record<string, { count: number; size: number }> = {};
+    // Use object wrapper to avoid TypeScript closure narrowing issues
+    const tracker = { oldest: null as DateInfo | null, newest: null as DateInfo | null };
+    
+    async function scan(dir: string) {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          try {
+            const stats = await fs.stat(fullPath);
+            if (entry.isDirectory()) {
+              totalFolders++;
+              await scan(fullPath);
+            } else {
+              totalFiles++;
+              totalBytes += stats.size;
+              
+              // Track by extension
+              const ext = path.extname(entry.name).toLowerCase().slice(1) || 'no extension';
+              if (!byType[ext]) byType[ext] = { count: 0, size: 0 };
+              byType[ext].count++;
+              byType[ext].size += stats.size;
+              
+              // Track oldest/newest
+              if (!tracker.oldest || stats.mtimeMs < tracker.oldest.date) {
+                tracker.oldest = { name: entry.name, date: stats.mtimeMs };
+              }
+              if (!tracker.newest || stats.mtimeMs > tracker.newest.date) {
+                tracker.newest = { name: entry.name, date: stats.mtimeMs };
+              }
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+    
+    await scan(dirPath);
+    
+    // Format size
+    const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+    const totalGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+    const sizeStr = totalBytes > 1024 * 1024 * 1024 ? `${totalGB} GB` : `${totalMB} MB`;
+    
+    // Sort byType by count and limit to top 10
+    const sortedTypes = Object.entries(byType)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 10)
+      .reduce((obj, [k, v]) => ({ ...obj, [k]: v }), {});
+    
+    // Copy from tracker object
+    const oldestInfo = tracker.oldest;
+    const newestInfo = tracker.newest;
+    
+    return {
+      totalFiles,
+      totalFolders,
+      totalSize: sizeStr,
+      byType: sortedTypes,
+      oldest: oldestInfo ? { name: oldestInfo.name, date: new Date(oldestInfo.date).toLocaleDateString() } : undefined,
+      newest: newestInfo ? { name: newestInfo.name, date: new Date(newestInfo.date).toLocaleDateString() } : undefined,
+    };
+  },
+
+  async findDuplicates({ 
+    path: dirPath, 
+    method = 'size', 
+    recursive = true 
+  }: { 
+    path: string; 
+    method?: 'size' | 'name' | 'both'; 
+    recursive?: boolean 
+  }): Promise<{ groups: Array<{ key: string; files: string[] }>; totalDuplicates: number }> {
+    const fileMap: Map<string, string[]> = new Map();
+    
+    async function scan(dir: string) {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          try {
+            if (entry.isDirectory()) {
+              if (recursive) await scan(fullPath);
+            } else {
+              const stats = await fs.stat(fullPath);
+              
+              // Create key based on method
+              let key: string;
+              if (method === 'name') {
+                key = entry.name.toLowerCase();
+              } else if (method === 'both') {
+                key = `${entry.name.toLowerCase()}_${stats.size}`;
+              } else {
+                key = `${stats.size}`; // size only
+              }
+              
+              if (!fileMap.has(key)) fileMap.set(key, []);
+              fileMap.get(key)!.push(fullPath);
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+    
+    await scan(dirPath);
+    
+    // Filter to only duplicates (2+ files with same key)
+    const duplicates = Array.from(fileMap.entries())
+      .filter(([_, files]) => files.length > 1)
+      .map(([key, files]) => ({ key, files }))
+      .sort((a, b) => b.files.length - a.files.length)
+      .slice(0, 10); // Limit for AI context
+    
+    const totalDuplicates = duplicates.reduce((sum, g) => sum + g.files.length, 0);
+    
+    return { groups: duplicates, totalDuplicates };
+  },
 };

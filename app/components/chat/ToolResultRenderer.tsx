@@ -113,12 +113,21 @@ export function ToolResultRenderer({ part, idx, onApprove, onDeny }: ToolResultR
       if (typeof output === 'string') {
         outputText = output;
       } else if (output && typeof output === 'object') {
+        // Handle different tool outputs
         if (toolName === 'listFiles') {
           outputText = Array.isArray(output) 
             ? `Found ${output.length} files` 
             : output.totalCount 
               ? `Found ${output.totalCount} files` 
               : 'Files loaded';
+        } else if (toolName === 'findLargeFiles') {
+          outputText = output.totalSize || `Found ${output.files?.length || 0} large files`;
+        } else if (toolName === 'getDirectoryStats') {
+          outputText = `${output.totalFiles} files, ${output.totalFolders} folders, ${output.totalSize}`;
+        } else if (toolName === 'findDuplicates') {
+          outputText = output.totalDuplicates > 0 
+            ? `Found ${output.totalDuplicates} potential duplicates in ${output.groups?.length || 0} groups`
+            : 'No duplicates found';
         }
       }
 
