@@ -74,13 +74,18 @@ export function ChatMessage({ message, addToolApprovalResponse, onSendMessage }:
             }
 
             // Special handling for analyzeFolder - show OrganizeOptionsCard
-            const toolName = part.toolName || (part.type?.includes('tool') && part.toolName);
-            if (toolName === 'analyzeFolder' && part.output && onSendMessage) {
+            const partAny = part as any;
+            const toolName = partAny.title || partAny.toolName || 
+              (part.type?.startsWith('tool-') ? part.type.replace(/^tool-/, '') : null);
+            const output = partAny.output ?? partAny.result;
+            const isComplete = partAny.state === 'result' || partAny.state === 'output-available' || output !== undefined;
+            
+            if (toolName === 'analyzeFolder' && output && isComplete && onSendMessage) {
               return (
                 <OrganizeOptionsCard
                   key={idx}
-                  folderPath={part.input?.path || ''}
-                  analysis={part.output}
+                  folderPath={partAny.input?.path || ''}
+                  analysis={output}
                   onSelectOption={handleOrganizeOption}
                 />
               );

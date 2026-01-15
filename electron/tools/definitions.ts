@@ -133,6 +133,18 @@ export function createAITools(deps: ToolDependencies) {
       execute: async (args: { paths: string[] }) => fsTools.trashFiles(args),
     } as any),
 
+    trashByPattern: tool({
+      description: 'Delete ALL files matching a pattern in a directory. Use this for commands like "delete all files starting with X". Pattern uses wildcards (* = any characters). More efficient than listing then deleting.',
+      inputSchema: z.object({
+        directory: z.string().describe('The directory to search in'),
+        pattern: z.string().describe('Pattern to match filenames (e.g., "Screenshot*", "*backup*")'),
+        extensions: z.array(z.string()).optional().describe('Optional: only match these extensions (e.g., ["png", "jpg"])'),
+      }),
+      // @ts-ignore
+      needsApproval: true,
+      execute: async (args: { directory: string; pattern: string; extensions?: string[] }) => fsTools.trashByPattern(args),
+    } as any),
+
     createDirectory: tool({
       description: 'Create a new directory',
       inputSchema: z.object({
@@ -323,21 +335,22 @@ The user's home directory is: ${homedir}${pathContext}
 
 CRITICAL RULES:
 1. **EXECUTE ACTIONS DIRECTLY**: When user wants to move, rename, copy, delete, or create → call the action tool IMMEDIATELY. Do NOT call checkFileExists first - the action will fail naturally if the file doesn't exist.
-2. **RENAMING**: To rename a file/folder, use 'moveFile' with the same directory but new name. Example: rename /path/old to /path/new.
-3. Use 'trashFile' for deletion requests (moves to trash for safety).
-4. **FILE MANAGER NAVIGATION**: 
+2. **COMPLETE THE WORKFLOW**: After listing files to identify targets, IMMEDIATELY proceed to execute the action (trashFiles, moveFiles, etc.) in the same response. Don't stop and wait after listing.
+3. **RENAMING**: To rename a file/folder, use 'moveFile' with the same directory but new name. Example: rename /path/old to /path/new.
+4. Use 'trashFile' for deletion requests (moves to trash for safety).
+5. **FILE MANAGER NAVIGATION**: 
     - When user says "go to", "show me", or "open" a FOLDER → use 'listFiles' to update the sidebar.
     - **RELATIVE PATHS**: If user says "go to pdf folder" and current path is /Users/x/Desktop, use /Users/x/Desktop/pdf
     - 'openFile' is ONLY for opening FILES in external apps (Preview, VS Code, etc).
     - The UI displays file results. Do NOT repeat file names in text.
-5. **EFFICIENCY**:
+6. **EFFICIENCY**:
     - **COUNTING questions** ("how many..."): use 'countFiles' NOT 'listFiles'.
     - **BATCH OPERATIONS**: use moveFiles/copyFiles/trashFiles for multiple files. NEVER loop single-file tools.
     - **checkFileExists**: ONLY use when user explicitly asks "does X exist?" or before creating to avoid overwrite.
-6. **SHELL COMMANDS (executeCommand)**:
+7. **SHELL COMMANDS (executeCommand)**:
     - Use for: git, npm, brew, du -sh, stat, zip/unzip, pbcopy
     - NEVER use for: ls, find, rm -rf, sudo
-7. **SMART ORGANIZE WORKFLOW**:
+8. **SMART ORGANIZE WORKFLOW**:
     - When user wants to "organize", "clean up", or "sort" a folder:
       1. FIRST call 'analyzeFolder' to understand the contents
       2. Present the analysis in a friendly summary (e.g., "I found ~20 images, ~15 documents, ~5 videos...")
@@ -347,6 +360,6 @@ CRITICAL RULES:
          - **3. Just clean up junk** - Find and handle duplicates only
       4. Wait for user to pick an option before executing
     - When executing: use 'organizeByType' with dryRun=false (will request approval)
-8. Be concise. Complete the user's request in as few steps as possible.
+9. Be concise. Complete the user's request in as few steps as possible.
 `;
 }

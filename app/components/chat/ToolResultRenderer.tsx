@@ -139,6 +139,10 @@ export function ToolResultRenderer({ part, idx, onApprove, onDeny }: ToolResultR
             .map(([cat, info]: [string, any]) => `${info.count} ${cat.toLowerCase()}`)
             .join(', ') : '';
           outputText = `Found ${output.totalFiles} files: ${categories}`;
+        } else if (toolName === 'trashByPattern') {
+          outputText = output.count > 0 
+            ? `Deleted ${output.count} files (${output.files?.slice(0, 3).join(', ')}...)`
+            : 'No matching files found';
         }
       }
 

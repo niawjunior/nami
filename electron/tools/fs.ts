@@ -281,6 +281,49 @@ export const fsTools = {
           throw new Error(`Failed to trash files: ${error.message}`);
       }
   },
+
+  async trashByPattern({ 
+    directory, 
+    pattern, 
+    extensions 
+  }: { 
+    directory: string; 
+    pattern: string; 
+    extensions?: string[] 
+  }): Promise<{ count: number; files: string[] }> {
+    try {
+      const entries = await fs.readdir(directory, { withFileTypes: true });
+      const filesToTrash: string[] = [];
+      const regex = new RegExp(pattern.replace('*', '.*'), 'i');
+      
+      for (const entry of entries) {
+        if (entry.isDirectory()) continue;
+        
+        // Check pattern match
+        if (!regex.test(entry.name)) continue;
+        
+        // Check extension filter if provided
+        if (extensions && extensions.length > 0) {
+          const ext = path.extname(entry.name).toLowerCase().slice(1);
+          if (!extensions.includes(ext)) continue;
+        }
+        
+        filesToTrash.push(path.join(directory, entry.name));
+      }
+      
+      if (filesToTrash.length === 0) {
+        return { count: 0, files: [] };
+      }
+      
+      await trash(filesToTrash);
+      return { 
+        count: filesToTrash.length, 
+        files: filesToTrash.slice(0, 10).map(f => path.basename(f)) // Show first 10 names
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to trash by pattern: ${error.message}`);
+    }
+  },
   
   async createDirectory({ path: dirPath }: { path: string }) {
       try {
