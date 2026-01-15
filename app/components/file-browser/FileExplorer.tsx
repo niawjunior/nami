@@ -1,4 +1,4 @@
-import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box, Search, X, Eye, ExternalLink, RefreshCw, ChevronLeft, AlertCircle } from 'lucide-react';
+import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box, Search, X, Eye, ExternalLink, RefreshCw, ChevronLeft, AlertCircle, Home, Monitor, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -66,6 +66,23 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
   const [textContent, setTextContent] = useState<string | null>(null);
   const [loadingText, setLoadingText] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [quickPaths, setQuickPaths] = useState<{ name: string; path: string; icon: any }[]>([]);
+
+  // Calculate quick paths on mount
+  useEffect(() => {
+    window.electron?.getDesktopPath().then(desktopPath => {
+        if (!desktopPath) return;
+        const separator = desktopPath.includes('\\') ? '\\' : '/';
+        const homePath = desktopPath.substring(0, desktopPath.lastIndexOf(separator));
+        
+        setQuickPaths([
+            { name: 'Home', path: homePath, icon: Home },
+            { name: 'Desktop', path: desktopPath, icon: Monitor },
+            { name: 'Downloads', path: `${homePath}${separator}Downloads`, icon: Download },
+            { name: 'Documents', path: `${homePath}${separator}Documents`, icon: FileText },
+        ]);
+    });
+  }, []);
 
   const isTextFile = (name: string) => {
       const ext = name.split('.').pop()?.toLowerCase();
@@ -211,6 +228,26 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                     <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
             )}
+        </div>
+        
+        {/* Quick Access Bar */}
+        <div className="flex items-center gap-1 px-2 py-1 bg-muted/10 border-b border-border/30 overflow-x-auto no-scrollbar">
+            {quickPaths.map(qp => (
+                <button
+                    key={qp.name}
+                    onClick={() => onNavigate?.(qp.path)}
+                    className={cn(
+                        "flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap",
+                        currentPath === qp.path 
+                            ? "bg-primary/10 text-primary" 
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                    title={qp.path}
+                >
+                    <qp.icon className="w-3 h-3" />
+                    {qp.name}
+                </button>
+            ))}
         </div>
         {currentPath && (
             <p className="text-[10px] text-muted-foreground truncate font-mono" title={currentPath}>

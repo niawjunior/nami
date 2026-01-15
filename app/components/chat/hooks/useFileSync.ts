@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileEntry } from '../../file-browser/FileExplorer';
 
 // Note: window.electron is typed in types/electron.d.ts
@@ -44,6 +44,11 @@ export function useFileSync() {
       console.error('Failed to load desktop:', err);
     }
   }, [refreshFiles]);
+
+  // Initial load
+  useEffect(() => {
+    loadDesktop();
+  }, []); // Run only once on mount
 
   // Navigate to a folder
   const handleNavigate = useCallback((path: string) => {

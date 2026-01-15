@@ -69,11 +69,6 @@ function ChatSession({ apiPort }: { apiPort: number }) {
     }
   }, [messages, processAIMessage]);
 
-  // Load Desktop on mount
-  useEffect(() => {
-    loadDesktop();
-  }, [loadDesktop]);
-
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
