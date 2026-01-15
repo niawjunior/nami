@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Send, Sparkles, LayoutPanelLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileExplorer } from '../file-browser/FileExplorer';
@@ -30,11 +30,29 @@ function ChatSession({ apiPort }: { apiPort: number }) {
     processAIMessage,
   } = useFileSync();
 
-  // Chat hook
+  // Use ref to always get latest currentPath in fetch (avoids stale closure)
+  const currentPathRef = useRef(currentPath);
+  useEffect(() => {
+    currentPathRef.current = currentPath;
+  }, [currentPath]);
+
+  // Custom fetch that includes currentPath in the request body
+  const customFetch = useCallback(async (url: string, options: RequestInit) => {
+    // Parse the existing body and add currentPath from ref (always latest)
+    const body = options.body ? JSON.parse(options.body as string) : {};
+    body.currentPath = currentPathRef.current;
+    
+    return window.fetch(url, {
+      ...options,
+      body: JSON.stringify(body),
+    });
+  }, []); // No deps - uses ref for latest value
+
+  // Chat hook with custom transport
   const { messages, sendMessage, status, addToolApprovalResponse } = useChat({
     transport: new DefaultChatTransport({
       api: `http://localhost:${apiPort}/api/chat`,
-      fetch: window.fetch.bind(window),
+      fetch: customFetch as typeof window.fetch,
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onError: (err) => console.error('Chat error:', err),

@@ -74,15 +74,25 @@ export function ToolResultRenderer({ part, idx, onApprove, onDeny }: ToolResultR
     const isSpecificTool = part.type !== 'tool-invocation';
     const toolName = isSpecificTool ? part.type.replace('tool-', '') : partAny.toolInvocation?.toolName;
     
-    // Check multiple properties where result might be stored in different SDK versions
-    const rawOutput = 'output' in part ? partAny.output : (partAny.toolInvocation?.result !== undefined ? partAny.toolInvocation?.result : partAny.result);
+    // Get output from various possible locations
+    const rawOutput = partAny.output ?? partAny.result ?? partAny.toolInvocation?.result ?? partAny.toolCall?.result;
     const output = rawOutput;
     
-    const error = 'error' in part ? partAny.error : partAny.toolInvocation?.error;
-    const isComplete = partAny.state === 'result' || partAny.state === 'output-available' || rawOutput !== undefined;
+    // Check for error - SDK uses "output-error" state and "errorText" property
+    const error = partAny.errorText ?? partAny.error ?? partAny.toolInvocation?.error ?? partAny.toolCall?.error;
+    const hasError = partAny.state === 'output-error' || !!error;
     
-    // Check for error
-    if (error) {
+    // Completion detection - check state and output
+    const isComplete = 
+      partAny.state === 'result' || 
+      partAny.state === 'output-available' || 
+      partAny.state === 'complete' ||
+      partAny.state === 'output-error' ||  // Error is also "complete"
+      rawOutput !== undefined ||
+      (partAny.toolCall && 'result' in partAny.toolCall);
+    
+    // Check for error first
+    if (hasError) {
       return (
         <div key={idx} className="text-xs text-destructive mt-2 flex flex-col gap-1 px-2 py-1 bg-destructive/10 rounded border border-destructive/20 w-fit">
           <div className="flex items-center gap-2">
@@ -90,7 +100,7 @@ export function ToolResultRenderer({ part, idx, onApprove, onDeny }: ToolResultR
             <span className="font-medium">Error: {toolName}</span>
           </div>
           <div className="opacity-70 pl-4">
-            {typeof error === 'string' ? error : (error.message || 'Unknown error')}
+            {typeof error === 'string' ? error : (error?.message || 'Unknown error')}
           </div>
         </div>
       );
@@ -98,15 +108,29 @@ export function ToolResultRenderer({ part, idx, onApprove, onDeny }: ToolResultR
 
     // Check for success (has output or completed state)
     if (isComplete) {
+      // Format output for display
+      let outputText: string | null = null;
+      if (typeof output === 'string') {
+        outputText = output;
+      } else if (output && typeof output === 'object') {
+        if (toolName === 'listFiles') {
+          outputText = Array.isArray(output) 
+            ? `Found ${output.length} files` 
+            : output.totalCount 
+              ? `Found ${output.totalCount} files` 
+              : 'Files loaded';
+        }
+      }
+
       return (
         <div key={idx} className="text-xs text-muted-foreground mt-2 flex flex-col gap-1 px-2 py-1 bg-green-500/10 rounded border border-green-500/20 w-fit">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <span className="font-medium text-green-600 dark:text-green-400">Done: {toolName}</span>
           </div>
-          {toolName === 'listFiles' && Array.isArray(output) && (
-            <div className="text-[10px] opacity-70 pl-4">
-              Found {output.length} files
+          {outputText && (
+            <div className="text-[11px] pl-4 text-foreground/80">
+              {outputText}
             </div>
           )}
         </div>

@@ -232,10 +232,14 @@ export function createAITools(deps: ToolDependencies) {
 }
 
 // System prompt for the AI
-export function getSystemPrompt(homedir: string): string {
+export function getSystemPrompt(homedir: string, currentPath?: string): string {
+  const pathContext = currentPath 
+    ? `\nThe user is currently browsing: ${currentPath}\nWhen user says "go to X folder" or references a relative path, resolve it relative to the current browsing path.`
+    : '';
+
   return `You are Nami, an expert file organization AI agent.
 You have access to the user's local file system via tools.
-The user's home directory is: ${homedir}
+The user's home directory is: ${homedir}${pathContext}
 
 CRITICAL RULES:
 1. **EXECUTE ACTIONS DIRECTLY**: When user wants to move, rename, copy, delete, or create → call the action tool IMMEDIATELY. Do NOT call checkFileExists first - the action will fail naturally if the file doesn't exist.
@@ -243,6 +247,7 @@ CRITICAL RULES:
 3. Use 'trashFile' for deletion requests (moves to trash for safety).
 4. **FILE MANAGER NAVIGATION**: 
     - When user says "go to", "show me", or "open" a FOLDER → use 'listFiles' to update the sidebar.
+    - **RELATIVE PATHS**: If user says "go to pdf folder" and current path is /Users/x/Desktop, use /Users/x/Desktop/pdf
     - 'openFile' is ONLY for opening FILES in external apps (Preview, VS Code, etc).
     - The UI displays file results. Do NOT repeat file names in text.
 5. **EFFICIENCY**:

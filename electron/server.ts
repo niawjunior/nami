@@ -19,7 +19,7 @@ app.use('/*', cors());
 
 app.post('/api/chat', async (c) => {
   try {
-    const { messages } = await c.req.json();
+    const { messages, currentPath } = await c.req.json();
 
     // Validate API key is present
     if (!process.env.OPENAI_API_KEY) {
@@ -68,7 +68,7 @@ app.post('/api/chat', async (c) => {
       messages: coreMessages,
       // @ts-ignore
       experimental_toolCallConfirmation: true,
-      system: getSystemPrompt(os.homedir()),
+      system: getSystemPrompt(os.homedir(), currentPath),
       tools,
     });
     

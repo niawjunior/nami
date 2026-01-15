@@ -72,13 +72,25 @@ export function useFileSync() {
     }
 
     for (const part of message.parts) {
-      // Handle tool-listFiles type (the actual type from API)
-      if (part.type === 'tool-listFiles') {
-        const output = (part as any).output;
-        const input = (part as any).input;
+      const partAny = part as any;
+      
+      // Detect listFiles tool - check all possible type formats
+      const isListFilesTool = 
+        part.type === 'tool-listFiles' || 
+        partAny.toolName === 'listFiles' ||
+        partAny.toolCall?.toolName === 'listFiles' ||
+        partAny.toolInvocation?.toolName === 'listFiles';
+      
+      if (isListFilesTool) {
+        // Get output from various possible locations
+        const output = partAny.output ?? partAny.result ?? partAny.toolInvocation?.result ?? partAny.toolCall?.result;
+        const input = partAny.input ?? partAny.args ?? partAny.toolInvocation?.args ?? partAny.toolCall?.args;
+        
+        // Only process if we have output (tool completed)
+        if (!output) continue;
         
         // Fetch full file list via IPC (not limited like AI response)
-        if (output && input?.path) {
+        if (input?.path) {
           lastProcessedMsgId.current = message.id;
           setCurrentPath(input.path);
           
@@ -89,68 +101,48 @@ export function useFileSync() {
             .then((res: any) => {
               if (res.success && Array.isArray(res.files)) {
                 setActiveFiles(res.files);
-              } else if (Array.isArray(output.files)) {
+              } else if (output.files && Array.isArray(output.files)) {
                 setActiveFiles(output.files);
+              } else if (Array.isArray(output)) {
+                setActiveFiles(output);
               }
             })
             .catch(() => {
-              if (Array.isArray(output.files)) {
+              if (output.files && Array.isArray(output.files)) {
                 setActiveFiles(output.files);
+              } else if (Array.isArray(output)) {
+                setActiveFiles(output);
               }
             });
           return;
         }
 
-        // Handle legacy array format
+        // Handle legacy array format without path in input
+        if (output.files && Array.isArray(output.files)) {
+          lastProcessedMsgId.current = message.id;
+          setActiveFiles(output.files);
+          return;
+        }
         if (Array.isArray(output)) {
           lastProcessedMsgId.current = message.id;
           setActiveFiles(output);
-          if (input?.path) {
-            setCurrentPath(input.path);
-          }
-          if (input?.extensions && Array.isArray(input.extensions)) {
-            setActiveFilters(input.extensions);
-          } else {
-            setActiveFilters([]);
-          }
           return;
         }
       }
 
-      // Handle tool-invocation type (legacy format)
-      if (part.type === 'tool-invocation' || part.type === 'tool-call') {
-        const invocation = (part as any).toolInvocation || part;
-        if (invocation?.toolName === 'listFiles' && invocation?.result) {
-          const result = invocation.result;
-          
-          if (result.files && Array.isArray(result.files)) {
-            lastProcessedMsgId.current = message.id;
-            
-            if (invocation.args?.path) {
-              refreshFiles(invocation.args.path, invocation.args?.extensions);
-            } else {
-              setActiveFiles(result.files);
-            }
-            return;
-          }
-
-          if (Array.isArray(result)) {
-            lastProcessedMsgId.current = message.id;
-            setActiveFiles(result);
-            if (invocation.args?.path) {
-              setCurrentPath(invocation.args.path);
-            }
-            return;
-          }
-        }
-        
-        // Auto-refresh on modification tools
-        const modTools = ['moveFile', 'trashFile', 'createDirectory', 'writeToFile', 'copyFile', 'copyFiles'];
-        if (modTools.includes(invocation?.toolName)) {
-          if (currentPath) {
-            refreshFiles(currentPath, activeFilters);
-          }
+      // Auto-refresh on modification tools
+      const toolName = partAny.toolName ?? 
+                       partAny.toolCall?.toolName ?? 
+                       partAny.toolInvocation?.toolName ??
+                       (part.type.startsWith('tool-') ? part.type.replace('tool-', '') : null);
+      
+      const modTools = ['moveFile', 'trashFile', 'createDirectory', 'writeToFile', 'copyFile', 'copyFiles', 'moveFiles', 'trashFiles'];
+      const hasResult = partAny.output ?? partAny.result ?? partAny.toolInvocation?.result;
+      
+      if (toolName && modTools.includes(toolName) && hasResult) {
+        if (currentPath && message.id !== lastProcessedMsgId.current) {
           lastProcessedMsgId.current = message.id;
+          refreshFiles(currentPath, activeFilters);
         }
       }
     }
