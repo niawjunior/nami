@@ -154,13 +154,13 @@ app.on("ready", async () => {
 
   // File Watcher
   let currentWatcher: any = null;
-  const fs = require('fs');
+  const chokidar = require('chokidar');
 
-  ipcMain.handle('watch-directory', (event, targetPath: string) => {
+  ipcMain.handle('watch-directory', async (event, targetPath: string) => {
       // Clean up previous watcher
       if (currentWatcher) {
           try {
-              currentWatcher.close();
+              await currentWatcher.close();
           } catch(e) {}
           currentWatcher = null;
       }
@@ -168,13 +168,37 @@ app.on("ready", async () => {
       if (!isPathAllowed(targetPath)) return { success: false, error: 'Access denied' };
 
       try {
-          // Watch for changes
-          currentWatcher = fs.watch(targetPath, (eventType: string, filename: string) => {
-              // specific file changes are hard to track cross-platform, so we just notify that SOMETHING changed
-              // Debounce could be handled in renderer, or we just send it.
-              // We send to the specific webContents that requested it
-              event.sender.send('directory-changed', targetPath);
+          // Watch for changes using Chokidar for robustness
+          currentWatcher = chokidar.watch(targetPath, {
+              ignored: [/(^|[\/\\])\../, '**/node_modules/**'], // Ignore dotfiles and node_modules
+              persistent: true,
+              depth: 1, // Only watch immediate directory for performance, or 0? 1 includes children.
+              ignoreInitial: true, // Don't emit add events for existing files on startup
+              awaitWriteFinish: { // Wait for writes to finish to avoid duplicate events
+                  stabilityThreshold: 100,
+                  pollInterval: 100
+              }
           });
+
+          // Send events
+          const notifyChange = (path: string) => {
+              // Debounced notification could be better, but for now simple relay
+              try {
+                if (!event.sender.isDestroyed()) {
+                   event.sender.send('directory-changed', targetPath);
+                }
+              } catch (e) {
+                  // Window might be closed
+              }
+          };
+
+          currentWatcher
+              .on('add', notifyChange)
+              .on('change', notifyChange)
+              .on('unlink', notifyChange)
+              .on('addDir', notifyChange)
+              .on('unlinkDir', notifyChange);
+
           return { success: true };
       } catch (err: any) {
           console.error('Watch error:', err);

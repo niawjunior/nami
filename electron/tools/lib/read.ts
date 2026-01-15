@@ -17,6 +17,8 @@ try {
   console.error('Failed to load pdf-parse:', e);
 }
 
+import { FileSystemScanner } from './scanner';
+
 export const readTools = {
   // Efficiently count files matching criteria
   async countFiles({ path: dirPath, recursive = false, extensions, pattern }: { 
@@ -26,41 +28,13 @@ export const readTools = {
     pattern?: string;
   }): Promise<number> {
     try {
-      if (pattern && pattern.includes('*')) {
-          const globPattern = recursive ? `**/${pattern}` : pattern;
-          const matches = await glob(globPattern, { 
-              cwd: dirPath, 
-              nodir: true,
-              dot: false 
-          });
-          
-          if (extensions) {
-              const extSet = new Set(extensions.map(e => e.toLowerCase().replace(/^\./, '')));
-              const filtered = matches.filter(f => {
-                  const ext = path.extname(f).toLowerCase().slice(1);
-                  return extSet.has(ext);
-              });
-              return filtered.length;
-          }
-          return matches.length;
-      }
-      
-      if (recursive) {
-        const globPattern = extensions 
-          ? `**/*.{${extensions.join(',')}}` 
-          : '**/*';
-        const files = await glob(globPattern, { 
-          cwd: dirPath, 
-          nodir: true,
-          dot: false 
-        });
-        return files.length;
-      } else {
-        const files = await fs.readdir(dirPath, { withFileTypes: true });
-        return files.filter(f => !f.isDirectory() && 
-          (!extensions || extensions.includes(path.extname(f.name).toLowerCase().slice(1)))
-        ).length;
-      }
+       const files = await FileSystemScanner.scan({
+           path: dirPath,
+           recursive,
+           extensions,
+           pattern
+       });
+       return files.length;
     } catch (error) {
       console.error('Error counting files:', error);
       return 0;
@@ -78,35 +52,12 @@ export const readTools = {
 
   async listFiles({ path: dirPath, recursive = false, sort = 'name', extensions }: { path: string; recursive?: boolean; sort?: 'name' | 'newest' | 'oldest' | 'type'; extensions?: string[] }): Promise<FileEntry[]> {
     try {
-      let filePaths: string[] = [];
-      
-      if (recursive) {
-        // Use glob for recursive search (much faster and simpler)
-        const pattern = extensions && extensions.length > 0 
-          ? `**/*.{${extensions.join(',')}}` 
-          : '**/*';
-          
-        // Get absolute paths
-        const relativePaths = await glob(pattern, { 
-          cwd: dirPath,
-          nodir: false, // Include directories if needed (but FileEntry usually assumes checks)
-          dot: false
-        });
-        
-        // Convert to absolute
-        filePaths = relativePaths.map(p => path.join(dirPath, p));
-        
-      } else {
-        const entries = await fs.readdir(dirPath, { withFileTypes: true });
-        // Filter by extension if provided
-        const filtered = entries.filter(e => {
-            if (e.isDirectory()) return true; // Keep directories for navigation
-            if (!extensions || extensions.length === 0) return true;
-            const ext = path.extname(e.name).toLowerCase().slice(1);
-            return extensions.includes(ext);
-        });
-        filePaths = filtered.map(e => path.join(dirPath, e.name));
-      }
+      // Use efficient scanner
+      const filePaths = await FileSystemScanner.scan({
+          path: dirPath, 
+          recursive, 
+          extensions 
+      });
 
       const files: FileEntry[] = await Promise.all(
         filePaths.map(async (filePath) => {

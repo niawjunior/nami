@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { FileEntry } from './types';
+import { FileSystemScanner } from './scanner';
 
 export const analyzeTools = {
   async findLargeFiles({ 
@@ -15,32 +16,29 @@ export const analyzeTools = {
     const minBytes = minSizeMB * 1024 * 1024;
     const largeFiles: FileEntry[] = [];
     
-    async function scan(dir: string) {
-      try {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name);
-          try {
-            if (entry.isDirectory()) {
-              if (recursive) await scan(fullPath);
-            } else {
-              const stats = await fs.stat(fullPath);
-              if (stats.size >= minBytes) {
-                largeFiles.push({
-                  name: entry.name,
-                  path: fullPath,
-                  isDirectory: false,
-                  size: stats.size,
-                  lastModified: stats.mtimeMs,
-                });
-              }
-            }
-          } catch {}
+    try {
+        const filePaths = await FileSystemScanner.scan({
+            path: dirPath,
+            recursive
+        });
+
+        for (const filePath of filePaths) {
+            try {
+                const stats = await fs.stat(filePath);
+                if (stats.size >= minBytes) {
+                    largeFiles.push({
+                        name: path.basename(filePath),
+                        path: filePath,
+                        isDirectory: false,
+                        size: stats.size,
+                        lastModified: stats.mtimeMs,
+                    });
+                }
+            } catch {}
         }
-      } catch {}
+    } catch (error) {
+        console.error('Error finding large files:', error);
     }
-    
-    await scan(dirPath);
     
     // Sort by size descending
     largeFiles.sort((a, b) => b.size - a.size);
@@ -66,36 +64,34 @@ export const analyzeTools = {
   }): Promise<{ groups: Array<{ key: string; files: string[] }>; totalDuplicates: number }> {
     const fileMap: Map<string, string[]> = new Map();
     
-    async function scan(dir: string) {
-      try {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name);
-          try {
-            if (entry.isDirectory()) {
-              if (recursive) await scan(fullPath);
-            } else {
-              const stats = await fs.stat(fullPath);
-              
-              // Create key based on method
-              let key: string;
-              if (method === 'name') {
-                key = entry.name.toLowerCase();
-              } else if (method === 'both') {
-                key = `${entry.name.toLowerCase()}_${stats.size}`;
-              } else {
-                key = `${stats.size}`; // size only
-              }
-              
-              if (!fileMap.has(key)) fileMap.set(key, []);
-              fileMap.get(key)!.push(fullPath);
-            }
-          } catch {}
+    try {
+        const filePaths = await FileSystemScanner.scan({
+            path: dirPath,
+            recursive
+        });
+
+        for (const filePath of filePaths) {
+            try {
+                const stats = await fs.stat(filePath);
+                const name = path.basename(filePath);
+                
+                // Create key based on method
+                let key: string;
+                if (method === 'name') {
+                    key = name.toLowerCase();
+                } else if (method === 'both') {
+                    key = `${name.toLowerCase()}_${stats.size}`;
+                } else {
+                    key = `${stats.size}`; // size only
+                }
+                
+                if (!fileMap.has(key)) fileMap.set(key, []);
+                fileMap.get(key)!.push(filePath);
+            } catch {}
         }
-      } catch {}
+    } catch (error) {
+        console.error('Error finding duplicates:', error);
     }
-    
-    await scan(dirPath);
     
     // Filter to only duplicates (2+ files with same key)
     const duplicates = Array.from(fileMap.entries())

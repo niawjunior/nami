@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { glob } from 'glob';
 import trash from 'trash';
+import { FileSystemScanner } from './scanner';
 
 export const writeTools = {
   async moveFile({ source, destination }: { source: string; destination: string }) {
@@ -75,45 +75,13 @@ export const writeTools = {
     recursive?: boolean;
   }): Promise<{ count: number; files: string[] }> {
     try {
-      const filesToTrash: string[] = [];
-      const regex = new RegExp(pattern.replace(/\*/g, '.*'), 'i');
-      
-      if (recursive) {
-        // Use glob for recursive search
-        const globPattern = '**/*';
-        const allFiles = await glob(globPattern, { 
-          cwd: directory, 
-          nodir: true,
+      const filesToTrash = await FileSystemScanner.scan({
+          path: directory,
+          recursive,
+          pattern,
+          extensions,
           ignore: ['**/node_modules/**', '**/.git/**']
-        });
-        
-        for (const file of allFiles) {
-          const basename = path.basename(file);
-          if (!regex.test(basename)) continue;
-          
-          if (extensions && extensions.length > 0) {
-            const ext = path.extname(basename).toLowerCase().slice(1);
-            if (!extensions.includes(ext)) continue;
-          }
-          
-          filesToTrash.push(path.join(directory, file));
-        }
-      } else {
-        // Non-recursive: just the immediate directory
-        const entries = await fs.readdir(directory, { withFileTypes: true });
-        
-        for (const entry of entries) {
-          if (entry.isDirectory()) continue;
-          if (!regex.test(entry.name)) continue;
-          
-          if (extensions && extensions.length > 0) {
-            const ext = path.extname(entry.name).toLowerCase().slice(1);
-            if (!extensions.includes(ext)) continue;
-          }
-          
-          filesToTrash.push(path.join(directory, entry.name));
-        }
-      }
+      });
       
       if (filesToTrash.length === 0) {
         return { count: 0, files: [] };
