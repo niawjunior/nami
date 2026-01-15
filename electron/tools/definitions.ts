@@ -34,6 +34,7 @@ export function createAITools(deps: ToolDependencies) {
         const totalCount = files.length;
         const sliced = files.slice(0, limit);
         return {
+          path: args.path, // Include path so UI can update File Explorer
           files: sliced,
           totalCount,
           truncated: totalCount > limit,
@@ -267,6 +268,35 @@ export function createAITools(deps: ToolDependencies) {
         return result;
       },
     }),
+
+    organizeByType: tool({
+      description: 'Organize files into folders by type (Images/, Documents/, Videos/, etc). Uses dry-run by default to preview changes. Set dryRun=false to execute (requires approval).',
+      inputSchema: z.object({
+        path: z.string().describe('The directory to organize'),
+        dryRun: z.boolean().default(true).describe('Preview changes without moving files'),
+      }),
+      // @ts-ignore
+      needsApproval: (args: { dryRun: boolean }) => !args.dryRun,
+      execute: async (args: { path: string; dryRun?: boolean }) => {
+        const result = await fsTools.organizeByType(args);
+        return result;
+      },
+    } as any),
+
+    organizeByDate: tool({
+      description: 'Organize files into folders by date (2024/, 2024-01/, etc). Uses dry-run by default to preview changes. Set dryRun=false to execute (requires approval).',
+      inputSchema: z.object({
+        path: z.string().describe('The directory to organize'),
+        format: z.enum(['year', 'year-month', 'year-month-day']).default('year-month').describe('Date folder format'),
+        dryRun: z.boolean().default(true).describe('Preview changes without moving files'),
+      }),
+      // @ts-ignore
+      needsApproval: (args: { dryRun: boolean }) => !args.dryRun,
+      execute: async (args: { path: string; format?: 'year' | 'year-month' | 'year-month-day'; dryRun?: boolean }) => {
+        const result = await fsTools.organizeByDate(args);
+        return result;
+      },
+    } as any),
   };
 }
 

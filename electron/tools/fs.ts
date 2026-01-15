@@ -504,4 +504,138 @@ export const fsTools = {
     
     return { groups: duplicates, totalDuplicates };
   },
+
+  async organizeByType({ 
+    path: dirPath, 
+    dryRun = true 
+  }: { 
+    path: string; 
+    dryRun?: boolean 
+  }): Promise<{ 
+    moves: Array<{ from: string; to: string }>; 
+    summary: Record<string, number>;
+    executed: boolean;
+  }> {
+    // Category mappings
+    const typeMap: Record<string, string> = {
+      // Images
+      jpg: 'Images', jpeg: 'Images', png: 'Images', gif: 'Images', 
+      webp: 'Images', svg: 'Images', bmp: 'Images', ico: 'Images', heic: 'Images',
+      // Documents  
+      pdf: 'Documents', doc: 'Documents', docx: 'Documents', txt: 'Documents',
+      rtf: 'Documents', odt: 'Documents', pages: 'Documents',
+      // Spreadsheets
+      xls: 'Spreadsheets', xlsx: 'Spreadsheets', csv: 'Spreadsheets', numbers: 'Spreadsheets',
+      // Presentations
+      ppt: 'Presentations', pptx: 'Presentations', key: 'Presentations',
+      // Videos
+      mp4: 'Videos', mov: 'Videos', avi: 'Videos', mkv: 'Videos', 
+      wmv: 'Videos', flv: 'Videos', webm: 'Videos',
+      // Audio
+      mp3: 'Audio', wav: 'Audio', flac: 'Audio', aac: 'Audio', 
+      ogg: 'Audio', m4a: 'Audio', wma: 'Audio',
+      // Archives
+      zip: 'Archives', rar: 'Archives', '7z': 'Archives', tar: 'Archives', 
+      gz: 'Archives', dmg: 'Archives',
+      // Code
+      js: 'Code', ts: 'Code', py: 'Code', java: 'Code', cpp: 'Code', 
+      c: 'Code', html: 'Code', css: 'Code', json: 'Code', xml: 'Code',
+    };
+    
+    const moves: Array<{ from: string; to: string }> = [];
+    const summary: Record<string, number> = {};
+    
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isDirectory()) continue;
+        
+        const ext = path.extname(entry.name).toLowerCase().slice(1);
+        const category = typeMap[ext] || 'Other';
+        const fullPath = path.join(dirPath, entry.name);
+        const destFolder = path.join(dirPath, category);
+        const destPath = path.join(destFolder, entry.name);
+        
+        moves.push({ from: fullPath, to: destPath });
+        summary[category] = (summary[category] || 0) + 1;
+      }
+      
+      // Execute if not dry run
+      if (!dryRun && moves.length > 0) {
+        // Create category folders
+        const folders = Array.from(new Set(moves.map(m => path.dirname(m.to))));
+        for (const folder of folders) {
+          await fs.mkdir(folder, { recursive: true });
+        }
+        // Move files
+        for (const move of moves) {
+          await fs.rename(move.from, move.to);
+        }
+      }
+      
+      return { moves: moves.slice(0, 20), summary, executed: !dryRun };
+    } catch (error: any) {
+      throw new Error(`Failed to organize: ${error.message}`);
+    }
+  },
+
+  async organizeByDate({ 
+    path: dirPath, 
+    format = 'year-month',
+    dryRun = true 
+  }: { 
+    path: string; 
+    format?: 'year' | 'year-month' | 'year-month-day';
+    dryRun?: boolean 
+  }): Promise<{ 
+    moves: Array<{ from: string; to: string }>; 
+    summary: Record<string, number>;
+    executed: boolean;
+  }> {
+    const moves: Array<{ from: string; to: string }> = [];
+    const summary: Record<string, number> = {};
+    
+    const formatDate = (date: Date): string => {
+      const y = date.getFullYear().toString();
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const d = date.getDate().toString().padStart(2, '0');
+      
+      if (format === 'year') return y;
+      if (format === 'year-month') return `${y}-${m}`;
+      return `${y}-${m}-${d}`;
+    };
+    
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isDirectory()) continue;
+        
+        const fullPath = path.join(dirPath, entry.name);
+        const stats = await fs.stat(fullPath);
+        const dateFolder = formatDate(new Date(stats.mtimeMs));
+        const destFolder = path.join(dirPath, dateFolder);
+        const destPath = path.join(destFolder, entry.name);
+        
+        moves.push({ from: fullPath, to: destPath });
+        summary[dateFolder] = (summary[dateFolder] || 0) + 1;
+      }
+      
+      // Execute if not dry run
+      if (!dryRun && moves.length > 0) {
+        const folders = Array.from(new Set(moves.map(m => path.dirname(m.to))));
+        for (const folder of folders) {
+          await fs.mkdir(folder, { recursive: true });
+        }
+        for (const move of moves) {
+          await fs.rename(move.from, move.to);
+        }
+      }
+      
+      return { moves: moves.slice(0, 20), summary, executed: !dryRun };
+    } catch (error: any) {
+      throw new Error(`Failed to organize: ${error.message}`);
+    }
+  },
 };

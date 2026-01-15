@@ -128,6 +128,12 @@ export function ToolResultRenderer({ part, idx, onApprove, onDeny }: ToolResultR
           outputText = output.totalDuplicates > 0 
             ? `Found ${output.totalDuplicates} potential duplicates in ${output.groups?.length || 0} groups`
             : 'No duplicates found';
+        } else if (toolName === 'organizeByType' || toolName === 'organizeByDate') {
+          const categories = Object.keys(output.summary || {}).length;
+          const totalFiles = Object.values(output.summary || {}).reduce((sum: number, n: any) => sum + n, 0);
+          outputText = output.executed 
+            ? `✅ Moved ${totalFiles} files into ${categories} folders`
+            : `Preview: ${totalFiles} files → ${categories} folders (dry run)`;
         }
       }
 
