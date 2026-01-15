@@ -297,6 +297,17 @@ export function createAITools(deps: ToolDependencies) {
         return result;
       },
     } as any),
+
+    analyzeFolder: tool({
+      description: 'Analyze a folder to understand its contents before organizing. Returns categorized breakdown (images, videos, documents, etc.), file counts, and suggestions. **ALWAYS use this first when user wants to organize a folder.**',
+      inputSchema: z.object({
+        path: z.string().describe('The directory to analyze'),
+      }),
+      execute: async (args) => {
+        const result = await fsTools.analyzeFolder(args);
+        return result;
+      },
+    }),
   };
 }
 
@@ -326,6 +337,16 @@ CRITICAL RULES:
 6. **SHELL COMMANDS (executeCommand)**:
     - Use for: git, npm, brew, du -sh, stat, zip/unzip, pbcopy
     - NEVER use for: ls, find, rm -rf, sudo
-7. Be concise. Complete the user's request in as few steps as possible.
+7. **SMART ORGANIZE WORKFLOW**:
+    - When user wants to "organize", "clean up", or "sort" a folder:
+      1. FIRST call 'analyzeFolder' to understand the contents
+      2. Present the analysis in a friendly summary (e.g., "I found ~20 images, ~15 documents, ~5 videos...")
+      3. Offer numbered options:
+         - **1. Full auto-organize** - Create folders by type and move everything
+         - **2. Review plan first** - Show exactly what goes where before moving
+         - **3. Just clean up junk** - Find and handle duplicates only
+      4. Wait for user to pick an option before executing
+    - When executing: use 'organizeByType' with dryRun=false (will request approval)
+8. Be concise. Complete the user's request in as few steps as possible.
 `;
 }

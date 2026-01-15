@@ -134,6 +134,11 @@ export function ToolResultRenderer({ part, idx, onApprove, onDeny }: ToolResultR
           outputText = output.executed 
             ? `✅ Moved ${totalFiles} files into ${categories} folders`
             : `Preview: ${totalFiles} files → ${categories} folders (dry run)`;
+        } else if (toolName === 'analyzeFolder') {
+          const categories = output.categories ? Object.entries(output.categories)
+            .map(([cat, info]: [string, any]) => `${info.count} ${cat.toLowerCase()}`)
+            .join(', ') : '';
+          outputText = `Found ${output.totalFiles} files: ${categories}`;
         }
       }
 

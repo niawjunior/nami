@@ -638,4 +638,98 @@ export const fsTools = {
       throw new Error(`Failed to organize: ${error.message}`);
     }
   },
+
+  async analyzeFolder({ path: dirPath }: { path: string }): Promise<{
+    totalFiles: number;
+    totalFolders: number;
+    categories: Record<string, { count: number; examples: string[] }>;
+    potentialDuplicates: number;
+    suggestions: string[];
+  }> {
+    // Category mappings (same as organizeByType)
+    const typeMap: Record<string, string> = {
+      jpg: 'Images', jpeg: 'Images', png: 'Images', gif: 'Images', 
+      webp: 'Images', svg: 'Images', heic: 'Images', bmp: 'Images',
+      pdf: 'Documents', doc: 'Documents', docx: 'Documents', txt: 'Documents',
+      rtf: 'Documents', pages: 'Documents',
+      xls: 'Spreadsheets', xlsx: 'Spreadsheets', csv: 'Spreadsheets', numbers: 'Spreadsheets',
+      ppt: 'Presentations', pptx: 'Presentations', key: 'Presentations',
+      mp4: 'Videos', mov: 'Videos', avi: 'Videos', mkv: 'Videos', webm: 'Videos',
+      mp3: 'Audio', wav: 'Audio', flac: 'Audio', m4a: 'Audio', aac: 'Audio',
+      zip: 'Archives', rar: 'Archives', '7z': 'Archives', tar: 'Archives', gz: 'Archives', dmg: 'Archives',
+      js: 'Code', ts: 'Code', py: 'Code', java: 'Code', html: 'Code', css: 'Code', json: 'Code',
+    };
+    
+    const categories: Record<string, { count: number; examples: string[] }> = {};
+    const sizeMap = new Map<number, string[]>(); // For duplicate detection
+    let totalFiles = 0;
+    let totalFolders = 0;
+    
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          totalFolders++;
+          continue;
+        }
+        
+        totalFiles++;
+        const fullPath = path.join(dirPath, entry.name);
+        const ext = path.extname(entry.name).toLowerCase().slice(1);
+        const category = typeMap[ext] || 'Other';
+        
+        if (!categories[category]) {
+          categories[category] = { count: 0, examples: [] };
+        }
+        categories[category].count++;
+        if (categories[category].examples.length < 3) {
+          categories[category].examples.push(entry.name);
+        }
+        
+        // Track file sizes for duplicate detection
+        try {
+          const stats = await fs.stat(fullPath);
+          if (!sizeMap.has(stats.size)) sizeMap.set(stats.size, []);
+          sizeMap.get(stats.size)!.push(entry.name);
+        } catch {}
+      }
+      
+      // Count potential duplicates (files with same size)
+      let potentialDuplicates = 0;
+      for (const files of Array.from(sizeMap.values())) {
+        if (files.length > 1) potentialDuplicates += files.length;
+      }
+      
+      // Generate suggestions
+      const suggestions: string[] = [];
+      const categoryCount = Object.keys(categories).length;
+      
+      if (categoryCount > 3) {
+        suggestions.push(`Organize into ${categoryCount} folders by file type`);
+      }
+      if (categories['Images']?.count > 10) {
+        suggestions.push(`Move ${categories['Images'].count} images to Images folder`);
+      }
+      if (categories['Videos']?.count > 5) {
+        suggestions.push(`Move ${categories['Videos'].count} videos to Videos folder`);
+      }
+      if (potentialDuplicates > 0) {
+        suggestions.push(`Review ${potentialDuplicates} potential duplicate files`);
+      }
+      if (categories['Other']?.count > 10) {
+        suggestions.push(`Sort ${categories['Other'].count} miscellaneous files`);
+      }
+      
+      return {
+        totalFiles,
+        totalFolders,
+        categories,
+        potentialDuplicates,
+        suggestions,
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to analyze folder: ${error.message}`);
+    }
+  },
 };

@@ -117,6 +117,15 @@ function ChatSession({ apiPort }: { apiPort: number }) {
     });
   };
 
+  // Helper for sending messages from UI buttons (like organize options)
+  const sendQuickMessage = useCallback(async (content: string) => {
+    if (isLoading) return;
+    await sendMessage({
+      role: 'user',
+      parts: [{ type: 'text', text: content }],
+    });
+  }, [sendMessage, isLoading]);
+
   return (
     <div className="flex h-full w-full overflow-hidden p-4 gap-4 pb-0 md:pb-4">
       {/* File Explorer Panel */}
@@ -174,6 +183,7 @@ function ChatSession({ apiPort }: { apiPort: number }) {
                 key={m.id} 
                 message={m} 
                 addToolApprovalResponse={addToolApprovalResponse}
+                onSendMessage={sendQuickMessage}
               />
             ))}
 

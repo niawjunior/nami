@@ -4,13 +4,15 @@ import { motion } from 'framer-motion';
 import { Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolResultRenderer } from './ToolResultRenderer';
+import { OrganizeOptionsCard } from './OrganizeOptionsCard';
 
 interface ChatMessageProps {
   message: any;
   addToolApprovalResponse: (args: { id: string; approved: boolean }) => void;
+  onSendMessage?: (message: string) => void;
 }
 
-export function ChatMessage({ message, addToolApprovalResponse }: ChatMessageProps) {
+export function ChatMessage({ message, addToolApprovalResponse, onSendMessage }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   const handleApprove = (approvalId: string) => {
@@ -20,6 +22,23 @@ export function ChatMessage({ message, addToolApprovalResponse }: ChatMessagePro
   const handleDeny = (approvalId: string) => {
     addToolApprovalResponse({ id: approvalId, approved: false });
   };
+
+  const handleOrganizeOption = (optionId: string) => {
+    if (!onSendMessage) return;
+    
+    const optionMessages: Record<string, string> = {
+      'full-auto': 'Yes, do full auto-organize',
+      'review-plan': 'Show me the plan first',
+      'clean-junk': 'Just clean up junk files',
+    };
+    onSendMessage(optionMessages[optionId] || optionId);
+  };
+
+  // Check for analyzeFolder result to show OrganizeOptionsCard
+  const analyzeFolderPart = message.parts.find((part: any) => {
+    const toolName = part.toolName || (part.type === 'tool-invocation' && part.toolName);
+    return toolName === 'analyzeFolder' && part.output;
+  });
 
   return (
     <motion.div
@@ -52,6 +71,19 @@ export function ChatMessage({ message, addToolApprovalResponse }: ChatMessagePro
             // Text content
             if (part.type === 'text') {
               return <span key={idx} className="block">{part.text}</span>;
+            }
+
+            // Special handling for analyzeFolder - show OrganizeOptionsCard
+            const toolName = part.toolName || (part.type?.includes('tool') && part.toolName);
+            if (toolName === 'analyzeFolder' && part.output && onSendMessage) {
+              return (
+                <OrganizeOptionsCard
+                  key={idx}
+                  folderPath={part.input?.path || ''}
+                  analysis={part.output}
+                  onSelectOption={handleOrganizeOption}
+                />
+              );
             }
 
             // Tool results (approval, success, error, loading)
