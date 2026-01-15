@@ -6,6 +6,7 @@
  */
 import { tool } from 'ai';
 import { z } from 'zod';
+import path from 'path';
 
 interface ToolDependencies {
   fsTools: any;
@@ -29,12 +30,15 @@ export function createAITools(deps: ToolDependencies) {
         extensions: z.array(z.string()).optional().describe('Filter by file extensions. E.g., ["pdf"] for PDFs, ["jpg", "png"] for images.'),
       }),
       execute: async (args) => {
-        const files = await fsTools.listFiles(args);
+        // Ensure path is absolute for UI navigation
+        const resolvedPath = path.resolve(args.path);
+        const files = await fsTools.listFiles({ ...args, path: resolvedPath });
+        
         const limit = 20; // Aggressive limit for AI context (UI uses separate IPC)
         const totalCount = files.length;
         const sliced = files.slice(0, limit);
         return {
-          path: args.path, // Include path so UI can update File Explorer
+          path: resolvedPath, // Return absolute path for UI
           files: sliced,
           totalCount,
           truncated: totalCount > limit,
@@ -46,11 +50,12 @@ export function createAITools(deps: ToolDependencies) {
     }),
 
     countFiles: tool({
-      description: 'Count files in a directory efficiently. **ALWAYS USE THIS** for questions like "how many files...", "count the PDFs...". Do NOT use listFiles for counting.',
+      description: 'Count files in a directory efficiently. **ALWAYS USE THIS** for questions like "how many files...", "count the PDFs...". Supports name pattern matching (e.g., "Screenshot*").',
       inputSchema: z.object({
         path: z.string().describe('The absolute path to count in'),
         recursive: z.boolean().optional().describe('Whether to count recursively'),
         extensions: z.array(z.string()).optional().describe('Filter by file extensions'),
+        pattern: z.string().optional().describe('Filter by filename pattern (e.g., "Screenshot*", "*backup*")'),
       }),
       execute: async (args) => {
         const count = await fsTools.countFiles(args);
@@ -139,10 +144,11 @@ export function createAITools(deps: ToolDependencies) {
         directory: z.string().describe('The directory to search in'),
         pattern: z.string().describe('Pattern to match filenames (e.g., "Screenshot*", "*backup*")'),
         extensions: z.array(z.string()).optional().describe('Optional: only match these extensions (e.g., ["png", "jpg"])'),
+        recursive: z.boolean().optional().describe('Search subdirectories too (default: false)'),
       }),
       // @ts-ignore
       needsApproval: true,
-      execute: async (args: { directory: string; pattern: string; extensions?: string[] }) => fsTools.trashByPattern(args),
+      execute: async (args: { directory: string; pattern: string; extensions?: string[]; recursive?: boolean }) => fsTools.trashByPattern(args),
     } as any),
 
     createDirectory: tool({

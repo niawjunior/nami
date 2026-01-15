@@ -54,22 +54,38 @@ interface FileEntry {
 
 export const fsTools = {
   // Efficiently count files matching criteria
-  async countFiles({ path: dirPath, recursive = false, extensions }: { path: string; recursive?: boolean; extensions?: string[] }): Promise<number> {
+  async countFiles({ path: dirPath, recursive = false, extensions, pattern }: { 
+    path: string; 
+    recursive?: boolean; 
+    extensions?: string[];
+    pattern?: string;
+  }): Promise<number> {
       try {
-          const pattern = recursive ? '**/*' : '*';
-          const files = await glob(pattern, { 
+          const globPattern = recursive ? '**/*' : '*';
+          const files = await glob(globPattern, { 
               cwd: dirPath, 
               nodir: true,
               ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**']
           });
           
-          if (!extensions || extensions.length === 0) return files.length;
+          let filtered = files;
           
-          const normalizedExts = extensions.map(e => e.toLowerCase().replace(/^\./, ''));
-          return files.filter(f => {
-              const ext = path.extname(f).toLowerCase().slice(1);
-              return normalizedExts.includes(ext);
-          }).length;
+          // Filter by name pattern (e.g., "Screenshot*")
+          if (pattern) {
+            const regex = new RegExp(pattern.replace(/\*/g, '.*'), 'i');
+            filtered = filtered.filter(f => regex.test(path.basename(f)));
+          }
+          
+          // Filter by extensions
+          if (extensions && extensions.length > 0) {
+            const normalizedExts = extensions.map(e => e.toLowerCase().replace(/^\./, ''));
+            filtered = filtered.filter(f => {
+                const ext = path.extname(f).toLowerCase().slice(1);
+                return normalizedExts.includes(ext);
+            });
+          }
+          
+          return filtered.length;
       } catch (error) {
           return 0;
       }
@@ -285,30 +301,53 @@ export const fsTools = {
   async trashByPattern({ 
     directory, 
     pattern, 
-    extensions 
+    extensions,
+    recursive = false
   }: { 
     directory: string; 
     pattern: string; 
-    extensions?: string[] 
+    extensions?: string[];
+    recursive?: boolean;
   }): Promise<{ count: number; files: string[] }> {
     try {
-      const entries = await fs.readdir(directory, { withFileTypes: true });
       const filesToTrash: string[] = [];
-      const regex = new RegExp(pattern.replace('*', '.*'), 'i');
+      const regex = new RegExp(pattern.replace(/\*/g, '.*'), 'i');
       
-      for (const entry of entries) {
-        if (entry.isDirectory()) continue;
+      if (recursive) {
+        // Use glob for recursive search
+        const globPattern = '**/*';
+        const allFiles = await glob(globPattern, { 
+          cwd: directory, 
+          nodir: true,
+          ignore: ['**/node_modules/**', '**/.git/**']
+        });
         
-        // Check pattern match
-        if (!regex.test(entry.name)) continue;
-        
-        // Check extension filter if provided
-        if (extensions && extensions.length > 0) {
-          const ext = path.extname(entry.name).toLowerCase().slice(1);
-          if (!extensions.includes(ext)) continue;
+        for (const file of allFiles) {
+          const basename = path.basename(file);
+          if (!regex.test(basename)) continue;
+          
+          if (extensions && extensions.length > 0) {
+            const ext = path.extname(basename).toLowerCase().slice(1);
+            if (!extensions.includes(ext)) continue;
+          }
+          
+          filesToTrash.push(path.join(directory, file));
         }
+      } else {
+        // Non-recursive: just the immediate directory
+        const entries = await fs.readdir(directory, { withFileTypes: true });
         
-        filesToTrash.push(path.join(directory, entry.name));
+        for (const entry of entries) {
+          if (entry.isDirectory()) continue;
+          if (!regex.test(entry.name)) continue;
+          
+          if (extensions && extensions.length > 0) {
+            const ext = path.extname(entry.name).toLowerCase().slice(1);
+            if (!extensions.includes(ext)) continue;
+          }
+          
+          filesToTrash.push(path.join(directory, entry.name));
+        }
       }
       
       if (filesToTrash.length === 0) {
@@ -318,7 +357,7 @@ export const fsTools = {
       await trash(filesToTrash);
       return { 
         count: filesToTrash.length, 
-        files: filesToTrash.slice(0, 10).map(f => path.basename(f)) // Show first 10 names
+        files: filesToTrash.slice(0, 10).map(f => path.basename(f))
       };
     } catch (error: any) {
       throw new Error(`Failed to trash by pattern: ${error.message}`);

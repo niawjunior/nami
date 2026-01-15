@@ -111,8 +111,26 @@ export function useFileSync() {
           continue;
         }
         
-        // Get path from input or from the output itself (some SDK versions include it)
-        const pathToUse = input?.path ?? output?.path;
+        // Get path from output first (guaranteed absolute by tool) or fallback to input
+        let pathToUse = output?.path ?? input?.path;
+        
+        // Fallback: If path is missing or relative, try to infer prompt absolute path from the files list
+        if ((!pathToUse || !pathToUse.startsWith('/')) && 
+            output?.files && Array.isArray(output.files) && output.files.length > 0 && output.files[0].path) {
+          // Extract directory from the first file's absolute path
+          // We assume all listed files are in the same directory (which is true for listFiles)
+          const firstFilePath = output.files[0].path;
+          // specific check for windows vs mac separators could be added here if needed, 
+          // but normalized paths usually work.
+          // We can use a simple string manipulation for the frontend
+          const separator = firstFilePath.includes('\\') ? '\\' : '/';
+          const lastIndex = firstFilePath.lastIndexOf(separator);
+          if (lastIndex > 0) {
+            pathToUse = firstFilePath.substring(0, lastIndex);
+            console.log('[useFileSync] Inferred absolute path from file list:', pathToUse);
+          }
+        }
+
         console.log('[useFileSync] pathToUse:', pathToUse);
         
         // Skip if we already processed this specific tool call
