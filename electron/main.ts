@@ -23,6 +23,9 @@ const isPathAllowed = (targetPath: string): boolean => {
 
 // Set the app name for macOS menu bar
 app.setName('Nami');
+// Performance: Disable default menu (article recommendation #8)
+import { Menu } from 'electron';
+Menu.setApplicationMenu(null);
 
 const appServe = serve({ directory: path.join(__dirname, "../out") });
 
@@ -114,23 +117,19 @@ app.on("ready", async () => {
       if (!isPathAllowed(filePath)) {
           throw new Error('Access denied: Path outside allowed directory');
       }
-      const fs = require('fs').promises;
-      const pathModule = require('path');
+      const { nativeImage } = require('electron');
       try {
-          const ext = pathModule.extname(filePath).toLowerCase().slice(1);
-          const mimeTypes: Record<string, string> = {
-              'png': 'image/png',
-              'jpg': 'image/jpeg',
-              'jpeg': 'image/jpeg',
-              'gif': 'image/gif',
-              'webp': 'image/webp',
-              'bmp': 'image/bmp',
-              'svg': 'image/svg+xml'
-          };
-          const mime = mimeTypes[ext] || 'application/octet-stream';
-          const buffer = await fs.readFile(filePath);
-          const base64 = buffer.toString('base64');
-          return `data:${mime};base64,${base64}`;
+          // Try optimized thumbnail generation first (macOS/Windows)
+          try {
+              const thumb = await nativeImage.createThumbnailFromPath(filePath, { width: 256, height: 256 });
+              return thumb.toDataURL();
+          } catch (e) {
+              // Fallback for unsupported formats or platforms
+              // console.warn('Thumbnail generation failed, falling back to full read:', e);
+              const img = nativeImage.createFromPath(filePath);
+              if (img.isEmpty()) return null;
+              return img.resize({ width: 256 }).toDataURL();
+          }
       } catch (err) {
           console.error('Failed to read image:', err);
           return null;
@@ -202,18 +201,46 @@ app.on("ready", async () => {
       }
   });
 
-  // Search Content
+  // Search Content (Worker Thread)
   ipcMain.handle('search-content', async (event, args: { directory: string; query: string; extensions?: string[] }) => {
       if (!isPathAllowed(args.directory)) {
           throw new Error('Access denied: Path outside allowed directory');
       }
-      const { fsTools } = require('./tools/fs');
-      try {
-          return await fsTools.searchContent(args);
-      } catch (err: any) {
-          console.error('Failed to search content:', err);
-          return { matches: [], totalMatches: 0, searchedFiles: 0 };
-      }
+
+      return new Promise((resolve, reject) => {
+          const { Worker } = require('worker_threads');
+          
+          // Worker path depends on environment, but since we compile everything to 'dist',
+          // it should be relative to this file (main.js)
+          const workerPath = path.join(__dirname, 'tools/searchWorker.js');
+          
+          const worker = new Worker(workerPath);
+
+          worker.on('message', (msg: any) => {
+              if (msg.type === 'success') {
+                  resolve(msg.results);
+              } else {
+                  console.error('Worker error:', msg.error);
+                  resolve({ matches: [], totalMatches: 0, searchedFiles: 0 }); // Fail gracefully
+              }
+              worker.terminate();
+          });
+
+          worker.on('error', (err: Error) => {
+              console.error('Worker thread error:', err);
+              reject(err);
+              worker.terminate();
+          });
+
+          worker.on('exit', (code: number) => {
+              if (code !== 0) {
+                  console.error(new Error(`Worker stopped with exit code ${code}`));
+              }
+          });
+
+          // Send task
+          worker.postMessage({ type: 'search', payload: args });
+      });
   });
 
   // File Watcher
