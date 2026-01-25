@@ -74,6 +74,14 @@ export function createAITools(deps: ToolDependencies) {
       },
     }),
 
+    getFolderSize: tool({
+      description: 'Calculate the total size of a folder recursively.',
+      inputSchema: z.object({
+        path: z.string().describe('The absolute path to the folder'),
+      }),
+      execute: async ({ path }) => fsTools.calculateFolderSize({ path }),
+    }),
+
     readFile: tool({
       description: 'Read the content of a text file',
       inputSchema: z.object({

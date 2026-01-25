@@ -11,6 +11,7 @@ interface FileContextMenuProps {
   onReveal: (path: string) => void;
   onCopyPath: (path: string) => void;
   onQuickLook: (file: FileEntry) => void;
+  onCalculateSize: (file: FileEntry) => void;
   onSuggestionClick?: (message: string) => void;
   selectedFiles: Set<string>;
   isImageFile: (name: string) => boolean;
@@ -23,6 +24,7 @@ export function FileContextMenu({
   onReveal,
   onCopyPath,
   onQuickLook,
+  onCalculateSize,
   onSuggestionClick,
   selectedFiles,
   isImageFile
@@ -37,7 +39,7 @@ export function FileContextMenu({
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.1 }}
                   style={{ 
-                      top: Math.min(contextMenu.y, (window.innerHeight) - 150), 
+                      top: Math.min(contextMenu.y, (window.innerHeight) - 200), // increased height buffer
                       left: Math.min(contextMenu.x, (window.innerWidth) - 180) 
                   }}
                   className="fixed z-50 w-44 bg-popover border border-border rounded-lg shadow-lg overflow-hidden py-1"
@@ -52,6 +54,11 @@ export function FileContextMenu({
                   {isImageFile(contextMenu.file.name) && (
                       <button onClick={() => { onQuickLook(contextMenu.file); onClose(); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2">
                            <Eye className="w-3.5 h-3.5" /> Quick Look
+                      </button>
+                  )}
+                  {contextMenu.file.isDirectory && (
+                      <button onClick={() => { onCalculateSize(contextMenu.file); onClose(); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2">
+                           <Box className="w-3.5 h-3.5" /> Calculate Size
                       </button>
                   )}
                   <button onClick={() => { onReveal(contextMenu.file.path); onClose(); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2">

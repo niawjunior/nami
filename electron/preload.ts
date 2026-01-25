@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("electron", {
   readImageAsBase64: (path: string) => ipcRenderer.invoke('read-image-as-base64', path),
   listFiles: (args: { path: string; extensions?: string[] }) => ipcRenderer.invoke('list-files', args),
   batchRename: (operations: { original: string; new: string }[]) => ipcRenderer.invoke('batch-rename', operations),
+  getFolderSize: (path: string) => ipcRenderer.invoke('get-folder-size', path),
   
   // Get file path from dropped File object (for drag & drop with sandbox enabled)
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

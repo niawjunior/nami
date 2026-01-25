@@ -230,4 +230,24 @@ export const analyzeTools = {
       throw new Error(`Failed to analyze folder: ${error.message}`);
     }
   },
+
+  async calculateFolderSize({ path: dirPath }: { path: string }): Promise<number> {
+    try {
+        const filePaths = await FileSystemScanner.scan({
+            path: dirPath,
+            recursive: true
+        });
+        
+        let totalSize = 0;
+        for (const filePath of filePaths) {
+            try {
+                const stats = await fs.stat(filePath);
+                totalSize += stats.size;
+            } catch {}
+        }
+        return totalSize;
+    } catch (error: any) {
+        throw new Error(`Failed to calculate folder size: ${error.message}`);
+    }
+  },
 };

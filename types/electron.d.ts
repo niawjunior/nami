@@ -17,6 +17,7 @@ export interface ElectronAPI {
   readImageAsBase64: (path: string) => Promise<string | null>;
   listFiles: (args: { path: string; extensions?: string[] }) => Promise<ListFilesResult>;
   batchRename: (operations: { original: string; new: string }[]) => Promise<{ success: string[]; errors: string[] }>;
+  getFolderSize: (path: string) => Promise<number>;
   getPathForFile: (file: File) => string;
 }
 

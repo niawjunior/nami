@@ -66,6 +66,17 @@ export function FileExplorer({
   const [quickPaths, setQuickPaths] = useState<{ name: string; path: string; icon: any }[]>([]);
   const [recentPaths, setRecentPaths] = useState<string[]>([]);
   const [suggestion, setSuggestion] = useState<{ message: string; subtext: string; prompt: string } | null>(null);
+  const [folderSizes, setFolderSizes] = useState<Record<string, number>>({});
+
+  const handleCalculateSize = async (file: FileEntry) => {
+      if (!file.isDirectory) return;
+      try {
+          const size = await window.electron.getFolderSize(file.path);
+          setFolderSizes(prev => ({ ...prev, [file.path]: size }));
+      } catch (err) {
+          console.error("Failed to calculate size:", err);
+      }
+  };
 
   // Load recent paths from localStorage on mount
   useEffect(() => {
@@ -298,9 +309,12 @@ export function FileExplorer({
                     <FileEntryRow
                         key={file.path + idx}
                         index={idx}
-                        file={file}
+                        file={{
+                           ...file,
+                           size: folderSizes[file.path] !== undefined ? folderSizes[file.path] : file.size 
+                        }}
                         isSelected={selectedFiles.has(file.path)}
-                        onSelect={(multi) => handleClick(file, idx, multi, false)} /* Simplified select for now, shift/cmd handled in click handler */
+                        onSelect={(multi) => handleClick(file, idx, multi, false)}
                         onDoubleClick={() => {
                             if (file.isDirectory && onNavigate) onNavigate(file.path);
                             else handleOpen(file);
@@ -406,6 +420,7 @@ export function FileExplorer({
         onReveal={handleReveal}
         onCopyPath={handleCopyPath}
         onQuickLook={setPreviewFile}
+        onCalculateSize={handleCalculateSize}
         onSuggestionClick={onSuggestionClick}
         selectedFiles={selectedFiles}
         isImageFile={isImageFile}

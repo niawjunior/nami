@@ -170,6 +170,20 @@ app.on("ready", async () => {
       }
   });
 
+  // Calculate folder size
+  ipcMain.handle('get-folder-size', async (event, folderPath: string) => {
+      if (!isPathAllowed(folderPath)) {
+          throw new Error('Access denied: Path outside allowed directory');
+      }
+      const { fsTools } = require('./tools/fs');
+      try {
+          return await fsTools.calculateFolderSize({ path: folderPath });
+      } catch (err: any) {
+          console.error('Failed to calculate folder size:', err);
+          return 0; // Return 0 on error
+      }
+  });
+
   // File Watcher
   let currentWatcher: any = null;
   const chokidar = require('chokidar');
