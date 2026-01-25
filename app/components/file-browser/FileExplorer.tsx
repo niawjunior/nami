@@ -2,7 +2,8 @@
 
 import { Folder } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import { FileExplorerSkeleton } from './FileExplorerSkeleton';
 import { BatchRenameModal } from './BatchRenameModal';
 import { FileEntryRow, formatSize } from './FileEntryRow';
@@ -48,7 +49,7 @@ const isTextFile = (name: string) => {
     return ['txt', 'md', 'json', 'yml', 'yaml', 'js', 'ts', 'tsx', 'jsx', 'css', 'html', 'log', 'sh', 'py', 'c', 'cpp', 'h', 'ini', 'conf', 'csv'].includes(ext || '');
 };
 
-export function FileExplorer({ 
+export const FileExplorer = memo(function FileExplorer({ 
   files, 
   currentPath, 
   className, 
@@ -59,6 +60,7 @@ export function FileExplorer({
   onSuggestionClick,
   isLoading = false
 }: FileExplorerProps) {
+
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file: FileEntry } | null>(null);
   const [showBatchRename, setShowBatchRename] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
@@ -201,7 +203,7 @@ export function FileExplorer({
             onOpen={(path) => window.electron?.openPath(path)} 
         />
       ) : (
-      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+      <div className="flex-1 overflow-hidden">
         {displayedFiles.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2 p-4">
                 <Folder className="w-10 h-10 stroke-1" />
@@ -210,36 +212,40 @@ export function FileExplorer({
                 </p>
             </div>
         ) : (
-            <div className="flex flex-col">
-                {displayedFiles.map((file, idx) => (
-                    <FileEntryRow
-                        key={file.path + idx}
-                        index={idx}
-                        file={file}
-                        customDisplaySize={folderSizes[file.path] !== undefined ? formatSize(folderSizes[file.path]) : undefined}
-                        isSelected={selectedFiles.has(file.path)}
-                        onSelect={(modifiers) => handleClick(file, idx, modifiers)}
-                        onDoubleClick={() => {
-                            if (file.isDirectory && onNavigate) onNavigate(file.path);
-                            else handleOpen(file);
-                        }}
-                        onContextMenu={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setContextMenu({ x: e.clientX, y: e.clientY, file });
-                        }}
-                        onDragStart={(e) => {
-                             if (selectedFiles.has(file.path) && selectedFiles.size > 1) {
-                                const paths = Array.from(selectedFiles).join('\n');
-                                e.dataTransfer.setData("text/plain", paths);
-                            } else {
-                                e.dataTransfer.setData("text/plain", file.path);
-                            }
-                            e.dataTransfer.effectAllowed = "copy";
-                        }}
-                    />
-                ))}
-            </div>
+            <Virtuoso
+                style={{ height: '100%' }}
+                data={displayedFiles}
+                itemContent={(index, file) => (
+                    <div className="pb-1 px-2 pt-1">
+                        <FileEntryRow
+                            key={file.path}
+                            index={index}
+                            file={file}
+                            customDisplaySize={folderSizes[file.path] !== undefined ? formatSize(folderSizes[file.path]) : undefined}
+                            isSelected={selectedFiles.has(file.path)}
+                            onSelect={(modifiers) => handleClick(file, index, modifiers)}
+                            onDoubleClick={() => {
+                                if (file.isDirectory && onNavigate) onNavigate(file.path);
+                                else handleOpen(file);
+                            }}
+                            onContextMenu={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setContextMenu({ x: e.clientX, y: e.clientY, file });
+                            }}
+                            onDragStart={(e) => {
+                                    if (selectedFiles.has(file.path) && selectedFiles.size > 1) {
+                                    const paths = Array.from(selectedFiles).join('\n');
+                                    e.dataTransfer.setData("text/plain", paths);
+                                } else {
+                                    e.dataTransfer.setData("text/plain", file.path);
+                                }
+                                e.dataTransfer.effectAllowed = "copy";
+                            }}
+                        />
+                    </div>
+                )}
+            />
         )}
       </div>
       )}
@@ -274,4 +280,4 @@ export function FileExplorer({
       />
     </div>
   );
-}
+});

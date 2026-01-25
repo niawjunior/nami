@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Trash2, Plus, X, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Conversation } from './hooks/useChatStorage';
+import { memo } from 'react';
 
 interface HistorySidebarProps {
   conversations: Conversation[];
@@ -32,7 +33,7 @@ const formatDate = (date: Date) => {
   }
 };
 
-export function HistorySidebar({
+export const HistorySidebar = memo(function HistorySidebar({
   conversations,
   currentConversationId,
   isOpen,
@@ -159,4 +160,4 @@ export function HistorySidebar({
       )}
     </AnimatePresence>
   );
-}
+});

@@ -4,3 +4,4 @@
 *.env
 dist
 out
+dist_app

@@ -1,6 +1,6 @@
 {
   "name": "nami",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "",
   "main": "dist/main.js",
   "scripts": {
@@ -8,8 +8,29 @@
     "dev:react": "next dev",
     "dev:electron": "wait-on tcp:3000 && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts electron/tools/definitions.ts electron/tools/lib/types.ts electron/tools/lib/utils.ts electron/tools/lib/scanner.ts electron/tools/lib/read.ts electron/tools/lib/write.ts electron/tools/lib/analyze.ts electron/tools/lib/undo.ts electron/tools/lib/automation.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck && electron . --dev",
     "build": "next build && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts electron/tools/definitions.ts electron/tools/lib/types.ts electron/tools/lib/utils.ts electron/tools/lib/scanner.ts electron/tools/lib/read.ts electron/tools/lib/write.ts electron/tools/lib/analyze.ts electron/tools/lib/undo.ts electron/tools/lib/automation.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck",
+    "dist": "npm run build && electron-builder",
     "start": "electron .",
     "lint": "next lint"
+  },
+  "build": {
+    "appId": "com.nami.app",
+    "productName": "Nami",
+    "files": [
+      "dist/**/*",
+      "out/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "output": "dist_app"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    },
+    "extraResources": [
+      ".env"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -20,6 +41,7 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.19",
     "electron": "^39.2.7",
+    "electron-builder": "^26.4.0",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",
@@ -50,6 +72,7 @@
     "pdf-parse": "^2.4.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-virtuoso": "^4.18.1",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",

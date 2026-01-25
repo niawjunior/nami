@@ -6,8 +6,12 @@ import { startServer } from "./server";
 import * as dotenv from 'dotenv';
 import os from 'os';
 
-// Explicitly load .env from the project root
-dotenv.config({ path: path.join(__dirname, '../.env') });
+// Explicitly load .env from the project root or resources
+const envPath = app.isPackaged 
+    ? path.join(process.resourcesPath, '.env')
+    : path.join(__dirname, '../.env');
+
+dotenv.config({ path: envPath });
 
 // Security: Validate paths are within allowed directories
 const isPathAllowed = (targetPath: string): boolean => {
