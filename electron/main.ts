@@ -265,6 +265,38 @@ app.on("ready", async () => {
           return { success: false, error: err.message };
       }
   });
+
+  // --- Automation IPC ---
+  
+  ipcMain.handle('automation-get-rules', async () => {
+      const { automation } = require('./tools/lib/automation');
+      return automation.getRules();
+  });
+
+  ipcMain.handle('automation-save-rule', async (event, rule) => {
+      const { automation } = require('./tools/lib/automation');
+      return automation.saveRule(rule);
+  });
+
+  ipcMain.handle('automation-delete-rule', async (event, id) => {
+      const { automation } = require('./tools/lib/automation');
+      return automation.deleteRule(id);
+  });
+
+  ipcMain.handle('automation-toggle-rule', async (event, id, enabled) => {
+      const { automation } = require('./tools/lib/automation');
+      return automation.toggleRule(id, enabled);
+  });
+
+  ipcMain.handle('automation-get-status', async () => {
+      const { automation } = require('./tools/lib/automation');
+      return automation.getGlobalEnabled();
+  });
+
+  ipcMain.handle('automation-toggle-global', async (event, enabled) => {
+      const { automation } = require('./tools/lib/automation');
+      return automation.toggleGlobal(enabled);
+  });
   
   createWindow();
 });

@@ -14,14 +14,15 @@ import { HistorySidebar } from './HistorySidebar';
 import { ChatHeaderControls } from './ChatHeaderControls';
 import { ChatInputArea } from './ChatInputArea';
 import { ChatWelcomeScreen } from './ChatWelcomeScreen';
+import { AutomationPanel } from '../automation/AutomationPanel';
 
-// ============================================
-// ChatSession - Main chat component
-// ============================================
+// ... (existing imports)
+
 function ChatSession({ apiPort }: { apiPort: number }) {
   const [inputVal, setInputVal] = useState('');
   const [showExplorer, setShowExplorer] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
+  const [showAutomation, setShowAutomation] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -268,6 +269,12 @@ function ChatSession({ apiPort }: { apiPort: number }) {
              createConversation();
              setTimeout(() => inputRef.current?.focus(), 100);
           }}
+          onShowAutomation={() => setShowAutomation(true)}
+        />
+        
+        <AutomationPanel 
+            isOpen={showAutomation} 
+            onClose={() => setShowAutomation(false)} 
         />
         
         {/* Drag Overlay Message */}

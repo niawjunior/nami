@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutPanelLeft, History, Plus } from 'lucide-react';
+import { LayoutPanelLeft, History, Plus, Play } from 'lucide-react';
 import { RefObject } from 'react';
 
 interface ChatHeaderControlsProps {
@@ -9,6 +9,7 @@ interface ChatHeaderControlsProps {
   activeFilesCount: number;
   setShowHistory: (show: boolean) => void;
   onNewChat: () => void;
+  onShowAutomation: () => void;
 }
 
 export function ChatHeaderControls({
@@ -16,7 +17,8 @@ export function ChatHeaderControls({
   setShowExplorer,
   activeFilesCount,
   setShowHistory,
-  onNewChat
+  onNewChat,
+  onShowAutomation
 }: ChatHeaderControlsProps) {
   return (
     <div className="absolute top-4 left-4 z-10 flex items-center gap-2 no-drag">
@@ -44,6 +46,14 @@ export function ChatHeaderControls({
         title="New Chat"
       >
         <Plus size={16} />
+      </button>
+
+      <button 
+        onClick={onShowAutomation}
+        className="p-2 bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors"
+        title="Automation Rules"
+      >
+        <Play size={16} className="text-primary" />
       </button>
     </div>
   );

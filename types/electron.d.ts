@@ -32,6 +32,14 @@ export interface ElectronAPI {
     searchedFiles: number;
   }>;
   getPathForFile: (file: File) => string;
+  automation: {
+    getRules: () => Promise<any[]>;
+    saveRule: (rule: any) => Promise<any[]>;
+    deleteRule: (id: string) => Promise<any[]>;
+    toggleRule: (id: string, enabled: boolean) => Promise<any[]>;
+    getStatus: () => Promise<boolean>;
+    toggleGlobal: (enabled: boolean) => Promise<boolean>;
+  };
 }
 
 declare global {

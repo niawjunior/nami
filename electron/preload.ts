@@ -22,4 +22,14 @@ contextBridge.exposeInMainWorld("electron", {
   
   // Get file path from dropped File object (for drag & drop with sandbox enabled)
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  
+  // Automation
+  automation: {
+    getRules: () => ipcRenderer.invoke('automation-get-rules'),
+    saveRule: (rule: any) => ipcRenderer.invoke('automation-save-rule', rule),
+    deleteRule: (id: string) => ipcRenderer.invoke('automation-delete-rule', id),
+    toggleRule: (id: string, enabled: boolean) => ipcRenderer.invoke('automation-toggle-rule', id, enabled),
+    getStatus: () => ipcRenderer.invoke('automation-get-status'),
+    toggleGlobal: (enabled: boolean) => ipcRenderer.invoke('automation-toggle-global', enabled),
+  }
 });

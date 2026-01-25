@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:react\" \"npm run dev:electron\"",
     "dev:react": "next dev",
-    "dev:electron": "wait-on tcp:3000 && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts electron/tools/definitions.ts electron/tools/lib/types.ts electron/tools/lib/utils.ts electron/tools/lib/scanner.ts electron/tools/lib/read.ts electron/tools/lib/write.ts electron/tools/lib/analyze.ts electron/tools/lib/undo.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck && electron . --dev",
-    "build": "next build && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts electron/tools/definitions.ts electron/tools/lib/types.ts electron/tools/lib/utils.ts electron/tools/lib/scanner.ts electron/tools/lib/read.ts electron/tools/lib/write.ts electron/tools/lib/analyze.ts electron/tools/lib/undo.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck",
+    "dev:electron": "wait-on tcp:3000 && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts electron/tools/definitions.ts electron/tools/lib/types.ts electron/tools/lib/utils.ts electron/tools/lib/scanner.ts electron/tools/lib/read.ts electron/tools/lib/write.ts electron/tools/lib/analyze.ts electron/tools/lib/undo.ts electron/tools/lib/automation.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck && electron . --dev",
+    "build": "next build && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts electron/tools/definitions.ts electron/tools/lib/types.ts electron/tools/lib/utils.ts electron/tools/lib/scanner.ts electron/tools/lib/read.ts electron/tools/lib/write.ts electron/tools/lib/analyze.ts electron/tools/lib/undo.ts electron/tools/lib/automation.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck",
     "start": "electron .",
     "lint": "next lint"
   },
@@ -30,6 +30,7 @@
     "@ai-sdk/react": "^3.0.35",
     "@hono/node-server": "^1.19.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
     "ai": "^6.0.33",
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
@@ -38,6 +39,7 @@
     "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
     "electron-serve": "^3.0.0",
+    "electron-store": "^8.2.0",
     "framer-motion": "^12.26.1",
     "get-port": "^7.1.0",
     "glob": "^13.0.0",
