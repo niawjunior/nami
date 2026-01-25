@@ -60,15 +60,28 @@ export const readTools = {
       });
 
       const files: FileEntry[] = await Promise.all(
-        filePaths.map(async (filePath) => {
+        filePaths.map(async (filePath): Promise<FileEntry | null> => {
           try {
             const stats = await fs.stat(filePath);
+            const isDirectory = stats.isDirectory();
+            let childCount: number | undefined;
+
+            if (isDirectory) {
+               try {
+                 const children = await fs.readdir(filePath);
+                 childCount = children.length;
+               } catch {
+                 childCount = 0;
+               }
+            }
+
             return {
               name: path.basename(filePath),
               path: filePath,
-              isDirectory: stats.isDirectory(),
+              isDirectory,
               size: stats.size,
               lastModified: stats.mtimeMs,
+              childCount
             };
           } catch {
             return null;

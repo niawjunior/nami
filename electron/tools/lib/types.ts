@@ -4,5 +4,6 @@ export interface FileEntry {
   isDirectory: boolean;
   size: number;
   lastModified: number;
+  childCount?: number;
   _meta?: string;
 }

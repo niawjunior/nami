@@ -11,6 +11,7 @@ export interface FileEntry {
   isDirectory: boolean;
   size: number;
   lastModified: number;
+  childCount?: number;
 }
 
 interface FileExplorerProps {
@@ -518,7 +519,9 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                             {file.name || '(unnamed)'}
                         </div>
                         <div className="shrink-0 text-[10px] text-muted-foreground font-mono">
-                            {file.isDirectory ? '' : formatSize(file.size)}
+                            {file.isDirectory 
+                                ? `${typeof file.childCount === 'number' ? file.childCount : '?'} items` 
+                                : formatSize(file.size)}
                         </div>
                     </motion.div>
                 ))}
