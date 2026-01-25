@@ -67,6 +67,23 @@ export const writeTools = {
       }
   },
 
+  async batchRename(operations: { original: string; new: string }[]): Promise<{ success: string[]; errors: string[] }> {
+    const results = { success: [] as string[], errors: [] as string[] };
+    
+    for (const op of operations) {
+      try {
+        await fs.rename(op.original, op.new);
+        results.success.push(op.original);
+        // Record each individual rename for now (or improve undo later)
+        undoSystem.recordOperation({ type: 'move', source: op.original, destination: op.new });
+      } catch (err: any) {
+        results.errors.push(`${path.basename(op.original)}: ${err.message}`);
+      }
+    }
+    
+    return results;
+  },
+
   async trashByPattern({ 
     directory, 
     pattern, 

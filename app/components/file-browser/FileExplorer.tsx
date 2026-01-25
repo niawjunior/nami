@@ -5,6 +5,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ThemeToggle } from '../ThemeToggle';
 import { ImageThumbnail } from './ImageThumbnail';
 import { FileExplorerSkeleton } from './FileExplorerSkeleton';
+import { BatchRenameModal } from './BatchRenameModal';
+import { Pencil } from 'lucide-react';
 
 export interface FileEntry {
   name: string;
@@ -77,6 +79,7 @@ export function FileExplorer({
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file: FileEntry } | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [showBatchRename, setShowBatchRename] = useState(false);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
   const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
@@ -367,8 +370,20 @@ export function FileExplorer({
                     </span>
                 )}
             </h3>
-            {/* Refresh button */}
-            {onRefresh && (
+            {/* Header Actions */}
+            <div className="flex items-center gap-1">
+                {selectedFiles.size > 1 && (
+                    <button
+                        onClick={() => setShowBatchRename(true)}
+                        className="p-1.5 hover:bg-secondary rounded transition-colors text-primary"
+                        title="Batch Rename"
+                    >
+                        <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                )}
+
+                {/* Refresh button */}
+                {onRefresh && (
                 <button 
                     onClick={onRefresh}
                     className="p-1.5 hover:bg-secondary rounded transition-colors"
@@ -379,6 +394,7 @@ export function FileExplorer({
             )}
             <ThemeToggle />
         </div>
+      </div>
         
         {/* Suggestion Chip */}
         <AnimatePresence>
@@ -674,9 +690,19 @@ export function FileExplorer({
                           </button>
                       </>
                   )}
-              </motion.div>
+                </motion.div>
           )}
       </AnimatePresence>
+
+      <BatchRenameModal
+        files={files.filter(f => selectedFiles.has(f.path))}
+        isOpen={showBatchRename}
+        onClose={() => setShowBatchRename(false)}
+        onComplete={() => {
+           onRefresh?.();
+           setSelectedFiles(new Set());
+        }}
+      />
     </div>
   );
 }

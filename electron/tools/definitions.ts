@@ -138,7 +138,20 @@ export function createAITools(deps: ToolDependencies) {
       // @ts-ignore
       needsApproval: true,
       execute: async (args: { path: string }) => fsTools.trashFile(args),
-    } as any),
+    }),
+
+    batchRename: tool({
+      description: 'Rename multiple files at once.',
+      inputSchema: z.object({
+         operations: z.array(z.object({
+            original: z.string().describe('Original absolute path'),
+            new: z.string().describe('New absolute path')
+         }))
+      }),
+      // @ts-ignore
+      needsApproval: true,
+      execute: async (args: { operations: { original: string; new: string }[] }) => fsTools.batchRename(args.operations),
+    }) as any,
 
     trashFiles: tool({
       description: 'Move MULTIPLE files to trash. ALWAYS use this for batch operations.',

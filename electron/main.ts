@@ -152,6 +152,24 @@ app.on("ready", async () => {
       }
   });
 
+  // Batch rename
+  ipcMain.handle('batch-rename', async (event, operations: { original: string; new: string }[]) => {
+      // Validate all paths
+      for (const op of operations) {
+          if (!isPathAllowed(op.original) || !isPathAllowed(op.new)) {
+              return { success: [], errors: ['Access denied: Path outside allowed directory'] };
+          }
+      }
+      
+      const { fsTools } = require('./tools/fs');
+      try {
+          return await fsTools.batchRename(operations);
+      } catch (err: any) {
+          console.error('Failed to batch rename:', err);
+          return { success: [], errors: [err.message] };
+      }
+  });
+
   // File Watcher
   let currentWatcher: any = null;
   const chokidar = require('chokidar');
