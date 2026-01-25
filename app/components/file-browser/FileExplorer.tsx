@@ -1,4 +1,4 @@
-import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box, Search, X, Eye, ExternalLink, RefreshCw, ChevronLeft, AlertCircle, Home, Monitor, Download, Sparkles } from 'lucide-react';
+import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box, Search, X, Eye, ExternalLink, RefreshCw, ChevronLeft, AlertCircle, Home, Monitor, Download, Sparkles, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -70,7 +70,40 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
   const [loadingText, setLoadingText] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [quickPaths, setQuickPaths] = useState<{ name: string; path: string; icon: any }[]>([]);
+  const [recentPaths, setRecentPaths] = useState<string[]>([]);
   const [suggestion, setSuggestion] = useState<{ message: string; subtext: string; prompt: string } | null>(null);
+
+  // Load recent paths from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('nami-recent-paths');
+      if (stored) {
+        setRecentPaths(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load recent paths:', e);
+    }
+  }, []);
+
+  // Track visited folders and update recent paths
+  useEffect(() => {
+    if (!currentPath) return;
+    
+    setRecentPaths(prev => {
+      // Don't add duplicates, move to front if exists
+      const filtered = prev.filter(p => p !== currentPath);
+      const updated = [currentPath, ...filtered].slice(0, 5); // Keep last 5
+      
+      // Persist to localStorage
+      try {
+        localStorage.setItem('nami-recent-paths', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save recent paths:', e);
+      }
+      
+      return updated;
+    });
+  }, [currentPath]);
 
   // Calculate quick paths on mount
   useEffect(() => {
@@ -370,6 +403,35 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                     {qp.name}
                 </button>
             ))}
+            {/* Recent Locations Divider & Chips */}
+            {recentPaths.filter(rp => !quickPaths.some(qp => qp.path === rp)).length > 0 && (
+                <>
+                    <div className="h-4 w-px bg-border/50 mx-1" />
+                    <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                    {recentPaths
+                        .filter(rp => !quickPaths.some(qp => qp.path === rp))
+                        .slice(0, 3) // Show max 3 recent
+                        .map(rp => {
+                            const folderName = rp.split('/').pop() || rp;
+                            return (
+                                <button
+                                    key={rp}
+                                    onClick={() => onNavigate?.(rp)}
+                                    className={cn(
+                                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap",
+                                        currentPath === rp
+                                            ? "bg-primary/10 text-primary"
+                                            : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                                    )}
+                                    title={rp}
+                                >
+                                    <Folder className="w-3 h-3" />
+                                    {folderName}
+                                </button>
+                            );
+                        })}
+                </>
+            )}
         </div>
         {currentPath && (
             <p className="text-[10px] text-muted-foreground truncate font-mono" title={currentPath}>

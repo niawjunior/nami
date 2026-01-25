@@ -326,6 +326,28 @@ export function createAITools(deps: ToolDependencies) {
         return result;
       },
     }),
+
+    // ===== UNDO TOOLS =====
+    
+    getUndoInfo: tool({
+      description: 'Get information about available undo operations. Shows count and description of last operation.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const { undoSystem } = await import('./fs');
+        return undoSystem.getStackInfo();
+      },
+    }),
+
+    undoLast: tool({
+      description: 'Undo the last file operation (move, copy, or folder creation). Cannot undo trash operations.',
+      inputSchema: z.object({}),
+      // @ts-ignore
+      needsApproval: true,
+      execute: async () => {
+        const { undoSystem } = await import('./fs');
+        return undoSystem.undoLast();
+      },
+    } as any),
   };
 }
 

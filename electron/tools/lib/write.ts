@@ -2,11 +2,13 @@ import fs from 'fs/promises';
 import path from 'path';
 import trash from 'trash';
 import { FileSystemScanner } from './scanner';
+import { undoSystem } from './undo';
 
 export const writeTools = {
   async moveFile({ source, destination }: { source: string; destination: string }) {
     try {
       await fs.rename(source, destination);
+      undoSystem.recordOperation({ type: 'move', source, destination });
       return `Moved ${source} to ${destination}`;
     } catch (error: any) {
       throw new Error(`Failed to move file: ${error.message}`);
@@ -48,6 +50,7 @@ export const writeTools = {
   async trashFile({ path: filePath }: { path: string }) {
     try {
       await trash(filePath);
+      undoSystem.recordOperation({ type: 'trash', paths: [filePath] });
       return `Moved ${filePath} to trash`;
     } catch (error: any) {
       throw new Error(`Failed to trash file: ${error.message}`);
@@ -57,6 +60,7 @@ export const writeTools = {
   async trashFiles({ paths }: { paths: string[] }) {
       try {
           await trash(paths);
+          undoSystem.recordOperation({ type: 'trash', paths });
           return `Moved ${paths.length} files to trash`;
       } catch (error: any) {
           throw new Error(`Failed to trash files: ${error.message}`);
