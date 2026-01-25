@@ -275,10 +275,10 @@ export function createAITools(deps: ToolDependencies) {
     }),
 
     findDuplicates: tool({
-      description: 'Find potential duplicate files by comparing file sizes, names, or both.',
+      description: 'Find potential duplicate files. Use "content" method for 100% accuracy (MD5 hash). Use "size" for speed.',
       inputSchema: z.object({
         path: z.string().describe('The directory to scan'),
-        method: z.enum(['size', 'name', 'both']).default('size').describe('How to detect duplicates'),
+        method: z.enum(['size', 'name', 'both', 'content']).default('size').describe('How to detect duplicates'),
         recursive: z.boolean().default(true).describe('Scan subdirectories'),
       }),
       execute: async (args) => {
@@ -341,7 +341,7 @@ The user's home directory is: ${homedir}${pathContext}
 
 CRITICAL RULES:
 1. **EXECUTE ACTIONS DIRECTLY**: When user wants to move, rename, copy, delete, or create → call the action tool IMMEDIATELY. Do NOT call checkFileExists first - the action will fail naturally if the file doesn't exist.
-2. **COMPLETE THE WORKFLOW**: After listing files to identify targets, IMMEDIATELY proceed to execute the action (trashFiles, moveFiles, etc.) in the same response. Don't stop and wait after listing.
+2. **COMPLETE THE WORKFLOW**: After listing files to identify targets, IMMEDIATELY proceed to execute the action (trashFiles, moveFiles, copyFiles, etc.) in the same response. Don't stop and wait after listing.
 3. **RENAMING**: To rename a file/folder, use 'moveFile' with the same directory but new name. Example: rename /path/old to /path/new.
 4. Use 'trashFile' for deletion requests (moves to trash for safety).
 5. **FILE MANAGER NAVIGATION**: 
@@ -352,6 +352,7 @@ CRITICAL RULES:
 6. **EFFICIENCY**:
     - **COUNTING questions** ("how many..."): use 'countFiles' NOT 'listFiles'.
     - **BATCH OPERATIONS**: use moveFiles/copyFiles/trashFiles for multiple files. NEVER loop single-file tools.
+    - **DUPLICATES**: When asked to find duplicates, use 'findDuplicates' with method='content' for accuracy, or 'size' for speed.
     - **checkFileExists**: ONLY use when user explicitly asks "does X exist?" or before creating to avoid overwrite.
 7. **SHELL COMMANDS (executeCommand)**:
     - Use for: git, npm, brew, du -sh, stat, zip/unzip, pbcopy

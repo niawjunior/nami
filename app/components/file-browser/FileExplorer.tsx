@@ -1,4 +1,4 @@
-import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box, Search, X, Eye, ExternalLink, RefreshCw, ChevronLeft, AlertCircle, Home, Monitor, Download } from 'lucide-react';
+import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box, Search, X, Eye, ExternalLink, RefreshCw, ChevronLeft, AlertCircle, Home, Monitor, Download, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -19,6 +19,7 @@ interface FileExplorerProps {
   onClearFilters?: () => void;
   onNavigate?: (path: string) => void;
   onRefresh?: () => void;
+  onSuggestionClick?: (message: string) => void;
 }
 
 const formatSize = (bytes: number) => {
@@ -57,7 +58,7 @@ const getFileIcon = (name: string, isDirectory: boolean) => {
   }
 };
 
-export function FileExplorer({ files, currentPath, className, activeFilters, onClearFilters, onNavigate, onRefresh }: FileExplorerProps) {
+export function FileExplorer({ files, currentPath, className, activeFilters, onClearFilters, onNavigate, onRefresh, onSuggestionClick }: FileExplorerProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file: FileEntry } | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null);
   const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
@@ -67,6 +68,7 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
   const [loadingText, setLoadingText] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [quickPaths, setQuickPaths] = useState<{ name: string; path: string; icon: any }[]>([]);
+  const [suggestion, setSuggestion] = useState<{ message: string; subtext: string; prompt: string } | null>(null);
 
   // Calculate quick paths on mount
   useEffect(() => {
@@ -133,6 +135,38 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
     }
   }, [previewFile]);
 
+  // Smart Suggestions Logic
+  useEffect(() => {
+    if (!files || files.length === 0) {
+        setSuggestion(null);
+        return;
+    }
+
+    const fileCount = files.filter(f => !f.isDirectory).length;
+    
+    // Suggestion 1: Organize Clutter
+    if (fileCount > 10) {
+        setSuggestion({
+            message: "Folder looks cluttered",
+            subtext: `Organize ${fileCount} files?`,
+            prompt: `I see ${fileCount} files in this folder. Can you help me organize them?`
+        });
+        return;
+    }
+
+    // Suggestion 2: Analysis for new folders (if > 5 files)
+    if (fileCount > 5) {
+         setSuggestion({
+            message: "New files found",
+            subtext: "Analyze contents?",
+            prompt: "Analyze this folder and tell me what's inside."
+        });
+        return;
+    }
+
+    setSuggestion(null);
+  }, [files, currentPath]);
+
   // Keyboard shortcuts
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -144,7 +178,7 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
               setPreviewFile(null);
               setContextMenu(null);
           }
-          if (e.key === ' ' && selectedFile && isImageFile(selectedFile.name)) {
+          if (e.key === ' ' && selectedFile && (isImageFile(selectedFile.name) || isTextFile(selectedFile.name))) {
               e.preventDefault();
               setPreviewFile(prev => prev ? null : selectedFile);
           }
@@ -230,6 +264,27 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
             )}
         </div>
         
+        {/* Suggestion Chip */}
+        <AnimatePresence>
+            {suggestion && onSuggestionClick && (
+                <motion.button
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    onClick={() => onSuggestionClick(suggestion.prompt)}
+                    className="flex items-center justify-between w-full px-3 py-2 bg-primary/10 hover:bg-primary/15 border border-primary/20 rounded-lg text-left group transition-colors mb-1"
+                >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                        <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
+                        <div className="flex flex-col truncate">
+                            <span className="text-[10px] font-semibold text-primary truncate">{suggestion.message}</span>
+                            <span className="text-[10px] text-primary/80 truncate">{suggestion.subtext}</span>
+                        </div>
+                    </div>
+                </motion.button>
+            )}
+        </AnimatePresence>
+
         {/* Quick Access Bar */}
         <div className="flex items-center gap-1 px-2 py-1 bg-muted/10 border-b border-border/30 overflow-x-auto no-scrollbar">
             {quickPaths.map(qp => (
@@ -301,6 +356,11 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                             } else {
                                 handleOpen(file);
                             }
+                        }}
+                        draggable
+                        onDragStart={(e: any) => {
+                            e.dataTransfer.setData("text/plain", file.path);
+                            e.dataTransfer.effectAllowed = "copy";
                         }}
                         className={cn(
                             "group flex items-center gap-2 px-3 py-1.5 cursor-default transition-colors border-b border-border/50 text-xs",

@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:react\" \"npm run dev:electron\"",
     "dev:react": "next dev",
-    "dev:electron": "wait-on tcp:3000 && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck && electron . --dev",
-    "build": "next build && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck",
+    "dev:electron": "wait-on tcp:3000 && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts electron/tools/definitions.ts electron/tools/lib/types.ts electron/tools/lib/utils.ts electron/tools/lib/scanner.ts electron/tools/lib/read.ts electron/tools/lib/write.ts electron/tools/lib/analyze.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck && electron . --dev",
+    "build": "next build && tsc electron/main.ts electron/preload.ts electron/server.ts electron/tools/fs.ts electron/tools/definitions.ts electron/tools/lib/types.ts electron/tools/lib/utils.ts electron/tools/lib/scanner.ts electron/tools/lib/read.ts electron/tools/lib/write.ts electron/tools/lib/analyze.ts --outDir dist --target esnext --module commonjs --esModuleInterop --skipLibCheck",
     "start": "electron .",
     "lint": "next lint"
   },

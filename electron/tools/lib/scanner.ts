@@ -21,21 +21,29 @@ export class FileSystemScanner {
     // Construct glob pattern
     let globPattern = '**/*';
     if (extensions && extensions.length > 0) {
-      globPattern = `**/*.{${extensions.join(',')}}`;
+      // Single extension: *.pdf, Multiple: *.{pdf,doc,docx}
+      const extPattern = extensions.length === 1 
+        ? extensions[0] 
+        : `{${extensions.join(',')}}`;
+      globPattern = `**/*.${extPattern}`;
     }
     
     // If not recursive, restrict glob
     if (!recursive) {
-        globPattern = extensions && extensions.length > 0 
-           ? `*.{${extensions.join(',')}}` 
-           : '*';
+        if (extensions && extensions.length > 0) {
+            const extPattern = extensions.length === 1 
+                ? extensions[0] 
+                : `{${extensions.join(',')}}`;
+            globPattern = `*.${extPattern}`;
+        } else {
+            globPattern = '*';
+        }
     }
 
     try {
       // Use glob for efficient scanning
       const matches = await glob(globPattern, {
         cwd: dirPath,
-        nodir: true,
         dot: false,
         ignore: ignore || ['**/node_modules/**', '**/.git/**', '**/.DS_Store'],
         absolute: true // Return absolute paths

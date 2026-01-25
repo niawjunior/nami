@@ -16,6 +16,7 @@ export interface ElectronAPI {
   readTextFile: (path: string) => Promise<string>;
   readImageAsBase64: (path: string) => Promise<string | null>;
   listFiles: (args: { path: string; extensions?: string[] }) => Promise<ListFilesResult>;
+  getPathForFile: (file: File) => string;
 }
 
 declare global {

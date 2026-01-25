@@ -5,6 +5,7 @@ import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalRespons
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Send, Sparkles, LayoutPanelLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 import { FileExplorer } from '../file-browser/FileExplorer';
 import { ChatMessage, ChatMessageLoading } from './ChatMessage';
 import { useFileSync } from './hooks/useFileSync';
@@ -15,6 +16,7 @@ import { useFileSync } from './hooks/useFileSync';
 function ChatSession({ apiPort }: { apiPort: number }) {
   const [inputVal, setInputVal] = useState('');
   const [showExplorer, setShowExplorer] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -134,12 +136,73 @@ function ChatSession({ apiPort }: { apiPort: number }) {
             onClearFilters={handleClearFilters}
             onNavigate={handleNavigate}
             onRefresh={handleRefresh}
+            onSuggestionClick={sendQuickMessage}
           />
         </div>
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full bg-card rounded-xl border border-border overflow-hidden shadow-sm relative transition-all min-w-0">
+      <div 
+        className={cn(
+          "flex-1 flex flex-col h-full bg-card rounded-xl border border-border overflow-hidden shadow-sm relative transition-all min-w-0",
+          isDragging && "ring-2 ring-primary ring-inset bg-primary/5"
+        )}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isDragging) setIsDragging(true);
+        }}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // Only cancel if leaving the main container
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+          setIsDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(false);
+
+          // 1. Handle files dropped from OS (Finder/Explorer)
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            // Use Electron's webUtils to get file paths (sandbox-safe)
+            const paths: string[] = [];
+            Array.from(e.dataTransfer.files).forEach(file => {
+              try {
+                const filePath = window.electron?.getPathForFile?.(file);
+                if (filePath) paths.push(filePath);
+              } catch (err) {
+                console.error('Failed to get path for file:', file.name, err);
+              }
+            });
+            
+            console.log('Extracted paths:', paths);
+
+            if (paths.length > 0) {
+              const textToInsert = paths.map(p => `"${p}"`).join(' ');
+              setInputVal(prev => prev ? `${prev} ${textToInsert}` : textToInsert);
+              
+              // Focus input after drop
+              setTimeout(() => inputRef.current?.focus(), 100);
+            }
+            return;
+          }
+
+          // 2. Handle internal drag (from FileExplorer)
+          const droppedPath = e.dataTransfer.getData('text/plain');
+          if (droppedPath) {
+              const textToInsert = `"${droppedPath}"`;
+              setInputVal(prev => prev ? `${prev} ${textToInsert}` : textToInsert);
+              setTimeout(() => inputRef.current?.focus(), 100);
+          }
+        }}
+      >
         
         {/* Toggle Button */}
         {!showExplorer && activeFiles.length > 0 && (
@@ -150,6 +213,16 @@ function ChatSession({ apiPort }: { apiPort: number }) {
           >
             <LayoutPanelLeft size={16} />
           </button>
+        )}
+        
+        {/* Drag Overlay Message */}
+        {isDragging && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
+            <div className="flex flex-col items-center gap-2 p-6 rounded-xl border border-primary/20 bg-primary/10 text-primary animate-in fade-in zoom-in duration-200">
+              <Sparkles className="w-8 h-8 animate-bounce" />
+              <p className="font-semibold text-lg">Drop files to add context</p>
+            </div>
+          </div>
         )}
         
         {/* Messages */}
@@ -192,13 +265,16 @@ function ChatSession({ apiPort }: { apiPort: number }) {
 
         {/* Input Area */}
         <div className="relative p-4 pt-2">
-          <form onSubmit={handleSubmit} className="relative group">
+          <form 
+            onSubmit={handleSubmit} 
+            className="relative group"
+          >
             <input
               ref={inputRef}
-              className="w-full bg-secondary border border-border rounded-xl px-4 py-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium placeholder:text-muted-foreground no-drag"
+              className="w-full bg-secondary border border-border rounded-xl px-4 py-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium placeholder:text-muted-foreground"
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
-              placeholder="Describe a file task..."
+              placeholder="Describe a file task... (or drop files here)"
             />
             <button
               type="submit"

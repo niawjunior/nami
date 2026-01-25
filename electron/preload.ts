@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 // Expose only specific, validated IPC methods to renderer
 contextBridge.exposeInMainWorld("electron", {
@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld("electron", {
   readTextFile: (path: string) => ipcRenderer.invoke('read-text-file', path),
   readImageAsBase64: (path: string) => ipcRenderer.invoke('read-image-as-base64', path),
   listFiles: (args: { path: string; extensions?: string[] }) => ipcRenderer.invoke('list-files', args),
+  
+  // Get file path from dropped File object (for drag & drop with sandbox enabled)
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
 });

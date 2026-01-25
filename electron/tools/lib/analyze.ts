@@ -1,9 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 import { FileEntry } from './types';
 import { FileSystemScanner } from './scanner';
 
 export const analyzeTools = {
+  // ... findLargeFiles implementation (unchanged) ...
   async findLargeFiles({ 
     path: dirPath, 
     minSizeMB = 100, 
@@ -59,7 +61,7 @@ export const analyzeTools = {
     recursive = true 
   }: { 
     path: string; 
-    method?: 'size' | 'name' | 'both'; 
+    method?: 'size' | 'name' | 'both' | 'content'; 
     recursive?: boolean 
   }): Promise<{ groups: Array<{ key: string; files: string[] }>; totalDuplicates: number }> {
     const fileMap: Map<string, string[]> = new Map();
@@ -70,25 +72,55 @@ export const analyzeTools = {
             recursive
         });
 
-        for (const filePath of filePaths) {
-            try {
-                const stats = await fs.stat(filePath);
-                const name = path.basename(filePath);
-                
-                // Create key based on method
-                let key: string;
-                if (method === 'name') {
-                    key = name.toLowerCase();
-                } else if (method === 'both') {
-                    key = `${name.toLowerCase()}_${stats.size}`;
-                } else {
-                    key = `${stats.size}`; // size only
-                }
-                
-                if (!fileMap.has(key)) fileMap.set(key, []);
-                fileMap.get(key)!.push(filePath);
-            } catch {}
+        // Optimization: For content hashing, first group by size to avoid hashing everything
+        if (method === 'content') {
+             const sizeMap = new Map<number, string[]>();
+             for (const filePath of filePaths) {
+                 try {
+                     const stats = await fs.stat(filePath);
+                     if (!stats.isFile()) continue;
+                     if (!sizeMap.has(stats.size)) sizeMap.set(stats.size, []);
+                     sizeMap.get(stats.size)!.push(filePath);
+                 } catch {}
+             }
+             
+             // Only hash files that share a size group
+             for (const [size, candidates] of Array.from(sizeMap.entries())) {
+                 if (candidates.length < 2) continue; // Unique size = unique content
+                 if (size === 0) continue; // Ignore empty files
+                 
+                 for (const filePath of candidates) {
+                     try {
+                         const fileBuffer = await fs.readFile(filePath);
+                         const hash = crypto.createHash('md5').update(fileBuffer).digest('hex');
+                         const key = `${size}_${hash}`;
+                         if (!fileMap.has(key)) fileMap.set(key, []);
+                         fileMap.get(key)!.push(filePath);
+                     } catch {}
+                 }
+             }
+        } else {
+            // Standard methods
+            for (const filePath of filePaths) {
+                try {
+                    const stats = await fs.stat(filePath);
+                    const name = path.basename(filePath);
+                    
+                    let key: string;
+                    if (method === 'name') {
+                        key = name.toLowerCase();
+                    } else if (method === 'both') {
+                        key = `${name.toLowerCase()}_${stats.size}`;
+                    } else {
+                        key = `${stats.size}`; // size only
+                    }
+                    
+                    if (!fileMap.has(key)) fileMap.set(key, []);
+                    fileMap.get(key)!.push(filePath);
+                } catch {}
+            }
         }
+
     } catch (error) {
         console.error('Error finding duplicates:', error);
     }
