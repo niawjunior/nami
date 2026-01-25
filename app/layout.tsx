@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { cn } from '@/lib/utils'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ThemeProvider } from './components/ThemeProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -17,14 +18,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={cn(inter.className, "bg-background text-foreground antialiased h-screen w-screen overflow-hidden flex flex-col")}>
-        <div className="titlebar" />
-        <div className="flex-1 overflow-hidden pt-10">
-            <ErrorBoundary>
-              {children}
-            </ErrorBoundary>
-        </div>
+        <ThemeProvider>
+          <div className="titlebar" />
+          <div className="flex-1 overflow-hidden pt-10">
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   )

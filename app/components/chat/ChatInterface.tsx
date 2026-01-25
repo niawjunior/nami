@@ -3,12 +3,13 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Send, Sparkles, LayoutPanelLeft } from 'lucide-react';
+import { Send, Sparkles, LayoutPanelLeft, Plus, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { FileExplorer } from '../file-browser/FileExplorer';
 import { ChatMessage, ChatMessageLoading } from './ChatMessage';
 import { useFileSync } from './hooks/useFileSync';
+import { useChatStorage, StoredMessage } from './hooks/useChatStorage';
 
 // ============================================
 // ChatSession - Main chat component
@@ -16,9 +17,22 @@ import { useFileSync } from './hooks/useFileSync';
 function ChatSession({ apiPort }: { apiPort: number }) {
   const [inputVal, setInputVal] = useState('');
   const [showExplorer, setShowExplorer] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Chat persistence
+  const {
+    conversations,
+    currentConversation,
+    currentConversationId,
+    isLoading: isStorageLoading,
+    createConversation,
+    saveMessages,
+    deleteConversation,
+    switchConversation,
+  } = useChatStorage();
   
   // File state management via custom hook
   const {
@@ -75,6 +89,32 @@ function ChatSession({ apiPort }: { apiPort: number }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-save messages to IndexedDB
+  useEffect(() => {
+    if (messages.length > 0 && currentConversationId) {
+      const storedMessages: StoredMessage[] = messages.map(m => {
+        // Extract text content from parts
+        const textPart = m.parts?.find((p: any) => p.type === 'text');
+        const content = textPart ? (textPart as any).text : '';
+        
+        return {
+          id: m.id,
+          role: m.role as 'user' | 'assistant' | 'system' | 'tool',
+          content,
+          toolInvocations: m.parts?.filter((p: any) => p.type === 'tool-invocation'),
+        };
+      });
+      saveMessages(storedMessages);
+    }
+  }, [messages, currentConversationId, saveMessages]);
+
+  // Create new conversation if none exists
+  useEffect(() => {
+    if (!isStorageLoading && !currentConversationId) {
+      createConversation();
+    }
+  }, [isStorageLoading, currentConversationId, createConversation]);
 
   // Auto-focus input on keydown
   useEffect(() => {

@@ -82,6 +82,18 @@ export function createAITools(deps: ToolDependencies) {
       execute: async (args) => fsTools.readFile(args),
     }),
 
+    searchContent: tool({
+      description: 'Search for text inside files (PDF, DOCX, TXT, code files). Returns matching files with preview snippets. Use this when user wants to find files containing specific content.',
+      inputSchema: z.object({
+        directory: z.string().describe('Directory to search in'),
+        query: z.string().describe('Text to search for'),
+        extensions: z.array(z.string()).optional().describe('Limit search to specific file types'),
+        caseSensitive: z.boolean().optional().describe('Case-sensitive search'),
+        maxResults: z.number().optional().describe('Maximum results to return (default: 20)'),
+      }),
+      execute: async (args) => fsTools.searchContent(args),
+    }),
+
     openFile: tool({
       description: 'Open a FILE (not folder) in its default external application (e.g., Preview for PDF, VS Code for code). **For folder navigation, use listFiles instead.**',
       inputSchema: z.object({

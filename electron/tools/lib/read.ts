@@ -223,4 +223,97 @@ export const readTools = {
       newest: newestInfo ? { name: newestInfo.name, date: new Date(newestInfo.date).toLocaleDateString() } : undefined,
     };
   },
+
+  /**
+   * Search inside file contents for a query string
+   * Supports: text files, PDF, DOCX
+   */
+  async searchContent({ 
+    directory, 
+    query, 
+    extensions,
+    caseSensitive = false,
+    maxResults = 20 
+  }: { 
+    directory: string; 
+    query: string;
+    extensions?: string[];
+    caseSensitive?: boolean;
+    maxResults?: number;
+  }): Promise<{ 
+    matches: Array<{ file: string; preview: string; lineNumber?: number }>;
+    totalMatches: number;
+    searchedFiles: number;
+  }> {
+    const matches: Array<{ file: string; preview: string; lineNumber?: number }> = [];
+    let searchedFiles = 0;
+    
+    // Default to common text/document extensions
+    const searchExtensions = extensions || ['txt', 'md', 'json', 'js', 'ts', 'py', 'pdf', 'docx', 'html', 'css', 'log', 'csv'];
+    
+    try {
+      const files = await FileSystemScanner.scan({
+        path: directory,
+        recursive: true,
+        extensions: searchExtensions
+      });
+      
+      const searchRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+      
+      for (const filePath of files) {
+        if (matches.length >= maxResults) break;
+        
+        const ext = path.extname(filePath).toLowerCase().slice(1);
+        searchedFiles++;
+        
+        try {
+          let content = '';
+          
+          // Read content based on file type
+          if (ext === 'pdf' && pdf) {
+            const buffer = await fs.readFile(filePath);
+            const data = await pdf(buffer);
+            content = data.text;
+          } else if (ext === 'docx') {
+            const buffer = await fs.readFile(filePath);
+            const result = await mammoth.extractRawText({ buffer });
+            content = result.value;
+          } else {
+            // Text file - read directly
+            const stats = await fs.stat(filePath);
+            if (stats.size > 5 * 1024 * 1024) continue; // Skip files > 5MB
+            content = await fs.readFile(filePath, 'utf-8');
+          }
+          
+          // Search for matches
+          const lines = content.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            if (searchRegex.test(lines[i])) {
+              // Get context around match
+              const preview = lines[i].trim().substring(0, 150) + (lines[i].length > 150 ? '...' : '');
+              matches.push({
+                file: filePath,
+                preview,
+                lineNumber: ext === 'pdf' || ext === 'docx' ? undefined : i + 1
+              });
+              
+              if (matches.length >= maxResults) break;
+            }
+            searchRegex.lastIndex = 0; // Reset regex state
+          }
+        } catch (err) {
+          // Skip files that can't be read
+          continue;
+        }
+      }
+      
+      return {
+        matches,
+        totalMatches: matches.length,
+        searchedFiles
+      };
+    } catch (error: any) {
+      throw new Error(`Search failed: ${error.message}`);
+    }
+  },
 };

@@ -2,6 +2,7 @@ import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box, Se
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { ThemeToggle } from '../ThemeToggle';
 
 export interface FileEntry {
   name: string;
@@ -362,6 +363,7 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                     <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
             )}
+            <ThemeToggle />
         </div>
         
         {/* Suggestion Chip */}
