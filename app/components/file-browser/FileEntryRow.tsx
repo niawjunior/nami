@@ -9,14 +9,15 @@ import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box } f
 interface FileEntryRowProps {
   file: FileEntry;
   isSelected: boolean;
-  onSelect: (multi: boolean) => void;
+  onSelect: (modifiers: { shift: boolean; cmd: boolean }) => void;
   onDragStart: (e: React.DragEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
   index: number;
+  customDisplaySize?: string;
 }
 
-const formatSize = (bytes: number) => {
+export const formatSize = (bytes: number) => {
     if (bytes === 0) return '--';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -59,7 +60,8 @@ export function FileEntryRow({
   onDragStart,
   onContextMenu,
   onDoubleClick,
-  index
+  index,
+  customDisplaySize
 }: FileEntryRowProps) {
   return (
         <motion.div
@@ -72,7 +74,10 @@ export function FileEntryRow({
         <div
             onClick={(e) => {
                 e.stopPropagation();
-                onSelect(e.shiftKey || e.metaKey || e.ctrlKey);
+                onSelect({ 
+                    shift: e.shiftKey, 
+                    cmd: e.metaKey || e.ctrlKey 
+                });
             }}
             onDoubleClick={(e) => {
                 e.stopPropagation();
@@ -99,9 +104,13 @@ export function FileEntryRow({
                 {file.name || '(unnamed)'}
             </div>
             <div className="shrink-0 text-[10px] text-muted-foreground font-mono">
-                {file.isDirectory 
-                    ? `${typeof file.childCount === 'number' ? file.childCount : '?'} items` 
-                    : formatSize(file.size)}
+                {customDisplaySize ? (
+                    <span className="text-primary font-semibold">{customDisplaySize}</span>
+                ) : file.isDirectory ? (
+                    `${typeof file.childCount === 'number' ? file.childCount : '?'} items` 
+                ) : (
+                    formatSize(file.size)
+                )}
             </div>
         </div>
         </motion.div>
