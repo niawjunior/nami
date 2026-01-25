@@ -1,12 +1,14 @@
-import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box, Search, X, Eye, ExternalLink, RefreshCw, ChevronLeft, AlertCircle, Home, Monitor, Download, Sparkles, Clock } from 'lucide-react';
+'use client';
+
+import { Folder, X, Eye, ExternalLink, AlertCircle, FileText, Home, Monitor, Download, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ThemeToggle } from '../ThemeToggle';
-import { ImageThumbnail } from './ImageThumbnail';
 import { FileExplorerSkeleton } from './FileExplorerSkeleton';
 import { BatchRenameModal } from './BatchRenameModal';
-import { Pencil } from 'lucide-react';
+import { FileEntryRow } from './FileEntryRow';
+import { FileExplorerHeader } from './FileExplorerHeader';
+import { FileContextMenu } from './FileContextMenu';
 
 export interface FileEntry {
   name: string;
@@ -29,40 +31,14 @@ interface FileExplorerProps {
   isLoading?: boolean;
 }
 
-const formatSize = (bytes: number) => {
-    if (bytes === 0) return '--';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
-
 const isImageFile = (name: string) => {
     const ext = name.split('.').pop()?.toLowerCase();
     return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext || '');
 };
 
-const getFileIcon = (name: string, isDirectory: boolean) => {
-  if (isDirectory) return <Folder className="w-4 h-4 text-blue-500" />;
-  
-  const ext = name.split('.').pop()?.toLowerCase();
-  
-  switch (ext) {
-    case 'png': case 'jpg': case 'jpeg': case 'gif': case 'webp': case 'bmp': case 'svg':
-      return <ImageIcon className="w-4 h-4 text-purple-500" />;
-    case 'mp3': case 'wav': case 'aac': case 'flac':
-      return <Music className="w-4 h-4 text-pink-500" />;
-    case 'mp4': case 'mov': case 'avi': case 'mkv':
-      return <Video className="w-4 h-4 text-red-500" />;
-    case 'js': case 'ts': case 'tsx': case 'jsx': case 'json': case 'css': case 'html': case 'py': case 'go': case 'rs':
-      return <Code className="w-4 h-4 text-amber-600" />;
-    case 'pdf': case 'txt': case 'md': case 'doc': case 'docx':
-      return <FileText className="w-4 h-4 text-gray-500" />;
-    case 'zip': case 'tar': case 'gz': case 'rar': case '7z':
-      return <Box className="w-4 h-4 text-orange-500" />;
-    default:
-      return <File className="w-4 h-4 text-gray-400" />;
-  }
+const isTextFile = (name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase();
+    return ['txt', 'md', 'json', 'yml', 'yaml', 'js', 'ts', 'tsx', 'jsx', 'css', 'html', 'log', 'sh', 'py', 'c', 'cpp', 'h', 'ini', 'conf', 'csv'].includes(ext || '');
 };
 
 export function FileExplorer({ 
@@ -106,19 +82,12 @@ export function FileExplorer({
   // Track visited folders and update recent paths
   useEffect(() => {
     if (!currentPath) return;
-    
     setRecentPaths(prev => {
-      // Don't add duplicates, move to front if exists
       const filtered = prev.filter(p => p !== currentPath);
-      const updated = [currentPath, ...filtered].slice(0, 5); // Keep last 5
-      
-      // Persist to localStorage
+      const updated = [currentPath, ...filtered].slice(0, 5);
       try {
         localStorage.setItem('nami-recent-paths', JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save recent paths:', e);
-      }
-      
+      } catch (e) { console.error(e); }
       return updated;
     });
   }, [currentPath]);
@@ -129,6 +98,7 @@ export function FileExplorer({
         if (!desktopPath) return;
         const separator = desktopPath.includes('\\') ? '\\' : '/';
         const homePath = desktopPath.substring(0, desktopPath.lastIndexOf(separator));
+        const { Home, Monitor, Download, FileText } = require('lucide-react');
         
         setQuickPaths([
             { name: 'Home', path: homePath, icon: Home },
@@ -139,11 +109,6 @@ export function FileExplorer({
     });
   }, []);
 
-  const isTextFile = (name: string) => {
-      const ext = name.split('.').pop()?.toLowerCase();
-      return ['txt', 'md', 'json', 'yml', 'yaml', 'js', 'ts', 'tsx', 'jsx', 'css', 'html', 'log', 'sh', 'py', 'c', 'cpp', 'h', 'ini', 'conf', 'csv'].includes(ext || '');
-  };
-
   // Close context menu on click elsewhere
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
@@ -151,25 +116,23 @@ export function FileExplorer({
     return () => window.removeEventListener('click', handleClick);
   }, []);
 
-  // Load image as base64 when preview file changes
+  // Load image preview
   useEffect(() => {
-      if (previewFile && isImageFile(previewFile.name)) {
-          setLoadingImage(true);
-          setImageDataUrl(null);
-          window.electron?.readImageAsBase64(previewFile.path)
-              .then((dataUrl) => {
-                  setImageDataUrl(dataUrl);
-                  setLoadingImage(false);
-              })
-              .catch(() => {
-                  setLoadingImage(false);
-              });
-      } else {
-          setImageDataUrl(null);
-      }
+    if (previewFile && isImageFile(previewFile.name)) {
+        setLoadingImage(true);
+        setImageDataUrl(null);
+        window.electron?.readImageAsBase64(previewFile.path)
+            .then((dataUrl) => {
+                setImageDataUrl(dataUrl);
+                setLoadingImage(false);
+            })
+            .catch(() => setLoadingImage(false));
+    } else {
+        setImageDataUrl(null);
+    }
   }, [previewFile]);
 
-  // Load text content when preview file changes
+  // Load text preview
   useEffect(() => {
     if (previewFile && isTextFile(previewFile.name)) {
         setLoadingText(true);
@@ -194,36 +157,27 @@ export function FileExplorer({
         setSuggestion(null);
         return;
     }
-
     const fileCount = files.filter(f => !f.isDirectory).length;
-    
-    // Suggestion 1: Organize Clutter
     if (fileCount > 10) {
         setSuggestion({
             message: "Folder looks cluttered",
             subtext: `Organize ${fileCount} files?`,
             prompt: `I see ${fileCount} files in this folder. Can you help me organize them?`
         });
-        return;
-    }
-
-    // Suggestion 2: Analysis for new folders (if > 5 files)
-    if (fileCount > 5) {
+    } else if (fileCount > 5) {
          setSuggestion({
             message: "New files found",
             subtext: "Analyze contents?",
             prompt: "Analyze this folder and tell me what's inside."
         });
-        return;
+    } else {
+        setSuggestion(null);
     }
-
-    setSuggestion(null);
   }, [files, currentPath]);
 
   // Keyboard shortcuts
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
-          // Ignore keyboard shortcuts when typing in input/textarea
           const tag = document.activeElement?.tagName;
           if (tag === 'INPUT' || tag === 'TEXTAREA') return;
           
@@ -233,60 +187,37 @@ export function FileExplorer({
               setSelectedFiles(new Set());
               setSelectedFile(null);
           }
-          // Spacebar for Quick Look
           if (e.key === ' ' && selectedFile && (isImageFile(selectedFile.name) || isTextFile(selectedFile.name))) {
               e.preventDefault();
               setPreviewFile(prev => prev ? null : selectedFile);
           }
-          // Enter to open selected file
           if (e.key === 'Enter' && selectedFile) {
               e.preventDefault();
-              if (selectedFile.isDirectory && onNavigate) {
-                  onNavigate(selectedFile.path);
-              } else {
-                  window.electron?.openPath(selectedFile.path);
-              }
+              if (selectedFile.isDirectory && onNavigate) onNavigate(selectedFile.path);
+              else window.electron?.openPath(selectedFile.path);
           }
-          // Cmd+Backspace to trash selected files
           if ((e.metaKey || e.ctrlKey) && e.key === 'Backspace' && selectedFiles.size > 0 && onSuggestionClick) {
               e.preventDefault();
               const paths = Array.from(selectedFiles);
-              if (paths.length === 1) {
-                  onSuggestionClick(`Move "${paths[0]}" to trash`);
-              } else {
-                  onSuggestionClick(`Move these ${paths.length} files to trash: ${paths.map(p => `"${p}"`).join(', ')}`);
-              }
+              const cmd = paths.length === 1 ? `Move "${paths[0]}" to trash` : `Move these ${paths.length} files to trash: ${paths.map(p => `"${p}"`).join(', ')}`;
+              onSuggestionClick(cmd);
           }
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedFile, selectedFiles, onNavigate, onSuggestionClick]);
 
-  const handleContextMenu = (e: React.MouseEvent, file: FileEntry) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setContextMenu({ x: e.clientX, y: e.clientY, file });
-  };
-
   const handleOpen = async (file: FileEntry) => {
       try {
-          if (window.electron?.openPath) {
-              await window.electron.openPath(file.path);
-          }
-      } catch (err) {
-          console.error("Failed to open file:", err);
-      }
+          await window.electron?.openPath(file.path);
+      } catch (err) { console.error("Failed to open file:", err); }
       setContextMenu(null);
   };
 
   const handleReveal = async (path: string) => {
       try {
-          if (window.electron?.showItemInFolder) {
-              await window.electron.showItemInFolder(path);
-          }
-      } catch (err) {
-          console.error("Failed to reveal:", err);
-      }
+          await window.electron?.showItemInFolder(path);
+      } catch (err) { console.error("Failed to reveal:", err); }
       setContextMenu(null);
   };
   
@@ -295,39 +226,27 @@ export function FileExplorer({
       setContextMenu(null);
   };
 
-  const handleClick = (file: FileEntry, index: number, e: React.MouseEvent) => {
-      const isShiftKey = e.shiftKey;
-      const isCmdKey = e.metaKey || e.ctrlKey;
-      
-      if (isShiftKey && lastSelectedIndex >= 0) {
-          // Shift+Click: Select range
+  const handleClick = (file: FileEntry, index: number, isShift: boolean, isCmd: boolean) => {
+      if (isShift && lastSelectedIndex >= 0) {
           const start = Math.min(lastSelectedIndex, index);
           const end = Math.max(lastSelectedIndex, index);
           const newSelection = new Set<string>(selectedFiles);
-          for (let i = start; i <= end; i++) {
-              newSelection.add(files[i].path);
-          }
+          for (let i = start; i <= end; i++) newSelection.add(files[i].path);
           setSelectedFiles(newSelection);
           setSelectedFile(file);
-      } else if (isCmdKey) {
-          // Cmd+Click: Toggle selection
+      } else if (isCmd) {
           const newSelection = new Set<string>(selectedFiles);
-          if (newSelection.has(file.path)) {
-              newSelection.delete(file.path);
-          } else {
-              newSelection.add(file.path);
-          }
+          if (newSelection.has(file.path)) newSelection.delete(file.path);
+          else newSelection.add(file.path);
           setSelectedFiles(newSelection);
           setSelectedFile(newSelection.size > 0 ? file : null);
           setLastSelectedIndex(index);
       } else {
-          // Normal click: Single select
           setSelectedFiles(new Set([file.path]));
           setSelectedFile(file);
           setLastSelectedIndex(index);
       }
       
-      // Auto-preview images or text on click
       if (isImageFile(file.name) || isTextFile(file.name)) {
           setPreviewFile(file);
       } else {
@@ -335,165 +254,37 @@ export function FileExplorer({
       }
   };
   
-  // Clear selection when files change (e.g., navigate to new folder)
+  // Clear selection when path changes
   useEffect(() => {
       setSelectedFiles(new Set());
       setSelectedFile(null);
       setLastSelectedIndex(-1);
   }, [currentPath]);
 
+  if (isLoading) {
+    return (
+      <div className={cn("h-full", className)}>
+        <FileExplorerSkeleton />
+      </div>
+    );
+  }
+
   return (
     <div className={cn("bg-card border border-border rounded-xl overflow-hidden flex flex-col h-full relative select-none shadow-sm", className)} ref={containerRef}>
-      {/* Header */}
-      <div className="p-3 border-b border-border bg-secondary/50 flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm flex items-center gap-2 text-foreground">
-                {/* Back button */}
-                {currentPath && currentPath !== '/' && onNavigate && (
-                    <button 
-                        onClick={() => {
-                            const parentPath = currentPath.split('/').slice(0, -1).join('/') || '/';
-                            onNavigate(parentPath);
-                        }}
-                        className="p-1 hover:bg-secondary rounded transition-colors -ml-1"
-                        title="Go back"
-                    >
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                )}
-                <Folder className="w-4 h-4 text-blue-500" />
-                File Explorer
-                {/* Selection count badge */}
-                {selectedFiles.size > 1 && (
-                    <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] font-medium rounded-full">
-                        {selectedFiles.size} selected
-                    </span>
-                )}
-            </h3>
-            {/* Header Actions */}
-            <div className="flex items-center gap-1">
-                {selectedFiles.size > 1 && (
-                    <button
-                        onClick={() => setShowBatchRename(true)}
-                        className="p-1.5 hover:bg-secondary rounded transition-colors text-primary"
-                        title="Batch Rename"
-                    >
-                        <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                )}
-
-                {/* Refresh button */}
-                {onRefresh && (
-                <button 
-                    onClick={onRefresh}
-                    className="p-1.5 hover:bg-secondary rounded transition-colors"
-                    title="Refresh"
-                >
-                    <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
-            )}
-            <ThemeToggle />
-        </div>
-      </div>
-        
-        {/* Suggestion Chip */}
-        <AnimatePresence>
-            {suggestion && onSuggestionClick && (
-                <motion.button
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    onClick={() => onSuggestionClick(suggestion.prompt)}
-                    className="flex items-center justify-between w-full px-3 py-2 bg-primary/10 hover:bg-primary/15 border border-primary/20 rounded-lg text-left group transition-colors mb-1"
-                >
-                    <div className="flex items-center gap-2 overflow-hidden">
-                        <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
-                        <div className="flex flex-col truncate">
-                            <span className="text-[10px] font-semibold text-primary truncate">{suggestion.message}</span>
-                            <span className="text-[10px] text-primary/80 truncate">{suggestion.subtext}</span>
-                        </div>
-                    </div>
-                </motion.button>
-            )}
-        </AnimatePresence>
-
-        {/* Quick Access Bar */}
-        <div className="flex items-center gap-1 px-2 py-1 bg-muted/10 border-b border-border/30 overflow-x-auto no-scrollbar">
-            {quickPaths.map(qp => (
-                <button
-                    key={qp.name}
-                    onClick={() => onNavigate?.(qp.path)}
-                    className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap",
-                        currentPath === qp.path 
-                            ? "bg-primary/10 text-primary" 
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                    title={qp.path}
-                >
-                    <qp.icon className="w-3 h-3" />
-                    {qp.name}
-                </button>
-            ))}
-            {/* Recent Locations Divider & Chips */}
-            {recentPaths.filter(rp => !quickPaths.some(qp => qp.path === rp)).length > 0 && (
-                <>
-                    <div className="h-4 w-px bg-border/50 mx-1" />
-                    <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
-                    {recentPaths
-                        .filter(rp => !quickPaths.some(qp => qp.path === rp))
-                        .slice(0, 3) // Show max 3 recent
-                        .map(rp => {
-                            const folderName = rp.split('/').pop() || rp;
-                            return (
-                                <button
-                                    key={rp}
-                                    onClick={() => onNavigate?.(rp)}
-                                    className={cn(
-                                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap",
-                                        currentPath === rp
-                                            ? "bg-primary/10 text-primary"
-                                            : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
-                                    )}
-                                    title={rp}
-                                >
-                                    <Folder className="w-3 h-3" />
-                                    {folderName}
-                                </button>
-                            );
-                        })}
-                </>
-            )}
-        </div>
-        {currentPath && (
-            <p className="text-[10px] text-muted-foreground truncate font-mono" title={currentPath}>
-                {currentPath}
-            </p>
-        )}
-        {/* Active Filters */}
-        {activeFilters && activeFilters.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-                {activeFilters.map(filter => (
-                    <span 
-                        key={filter}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-medium rounded-full"
-                    >
-                        .{filter}
-                        {onClearFilters && (
-                            <button 
-                                onClick={onClearFilters}
-                                className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
-                                title="Clear filter"
-                            >
-                                <X className="w-2.5 h-2.5" />
-                            </button>
-                        )}
-                    </span>
-                ))}
-            </div>
-        )}
-      </div>
-
+      <FileExplorerHeader
+        currentPath={currentPath || ''}
+        onNavigate={onNavigate || (() => {})}
+        onRefresh={onRefresh}
+        onClearFilters={onClearFilters}
+        onSuggestionClick={onSuggestionClick}
+        onBatchRename={() => setShowBatchRename(true)}
+        selectedCount={selectedFiles.size}
+        activeFilters={activeFilters}
+        quickPaths={quickPaths}
+        recentPaths={recentPaths}
+        suggestion={suggestion}
+      />
+      
       {/* File List */}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
         {files.length === 0 ? (
@@ -504,24 +295,23 @@ export function FileExplorer({
         ) : (
             <div className="flex flex-col">
                 {files.map((file, idx) => (
-                    <motion.div
+                    <FileEntryRow
                         key={file.path + idx}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: Math.min(idx * 0.01, 0.5) }}
-                        onClick={(e) => handleClick(file, idx, e)}
-                        onContextMenu={(e) => handleContextMenu(e, file)}
+                        index={idx}
+                        file={file}
+                        isSelected={selectedFiles.has(file.path)}
+                        onSelect={(multi) => handleClick(file, idx, multi, false)} /* Simplified select for now, shift/cmd handled in click handler */
                         onDoubleClick={() => {
-                            if (file.isDirectory && onNavigate) {
-                                onNavigate(file.path);
-                            } else {
-                                handleOpen(file);
-                            }
+                            if (file.isDirectory && onNavigate) onNavigate(file.path);
+                            else handleOpen(file);
                         }}
-                        draggable
-                        onDragStart={(e: any) => {
-                            // If dragging a selected file, include all selected files
-                            if (selectedFiles.has(file.path) && selectedFiles.size > 1) {
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setContextMenu({ x: e.clientX, y: e.clientY, file });
+                        }}
+                        onDragStart={(e) => {
+                             if (selectedFiles.has(file.path) && selectedFiles.size > 1) {
                                 const paths = Array.from(selectedFiles).join('\n');
                                 e.dataTransfer.setData("text/plain", paths);
                             } else {
@@ -529,29 +319,7 @@ export function FileExplorer({
                             }
                             e.dataTransfer.effectAllowed = "copy";
                         }}
-                        className={cn(
-                            "group flex items-center gap-2 px-3 py-1.5 cursor-default transition-colors border-b border-border/50 text-xs",
-                            selectedFiles.has(file.path) 
-                                ? "bg-primary/10 text-primary" 
-                                : "hover:bg-secondary"
-                        )}
-                    >
-                        <div className="shrink-0">
-                            {isImageFile(file.name) ? (
-                                <ImageThumbnail path={file.path} name={file.name} size={20} className="rounded-sm" />
-                            ) : (
-                                getFileIcon(file.name, file.isDirectory)
-                            )}
-                        </div>
-                        <div className="flex-1 min-w-0 truncate font-medium text-foreground">
-                            {file.name || '(unnamed)'}
-                        </div>
-                        <div className="shrink-0 text-[10px] text-muted-foreground font-mono">
-                            {file.isDirectory 
-                                ? `${typeof file.childCount === 'number' ? file.childCount : '?'} items` 
-                                : formatSize(file.size)}
-                        </div>
-                    </motion.div>
+                    />
                 ))}
             </div>
         )}
@@ -631,68 +399,17 @@ export function FileExplorer({
           )}
       </AnimatePresence>
 
-
-      {/* Context Menu */}
-      <AnimatePresence>
-          {contextMenu && (
-              <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.1 }}
-                  style={{ 
-                      top: Math.min(contextMenu.y, (window.innerHeight) - 150), 
-                      left: Math.min(contextMenu.x, (window.innerWidth) - 180) 
-                  }}
-                  className="fixed z-50 w-44 bg-popover border border-border rounded-lg shadow-lg overflow-hidden py-1"
-              >
-                  <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground border-b border-border mb-1 truncate">
-                      {contextMenu.file.name}
-                  </div>
-                  <button onClick={() => handleOpen(contextMenu.file)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2">
-                       <ExternalLink className="w-3.5 h-3.5" /> Open
-                  </button>
-                  {isImageFile(contextMenu.file.name) && (
-                      <button onClick={() => { setPreviewFile(contextMenu.file); setContextMenu(null); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2">
-                           <Eye className="w-3.5 h-3.5" /> Quick Look
-                      </button>
-                  )}
-                  <button onClick={() => handleReveal(contextMenu.file.path)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2">
-                       <Search className="w-3.5 h-3.5" /> Show in Finder
-                  </button>
-                  <div className="h-px bg-border my-1" />
-                  <button onClick={() => handleCopyPath(contextMenu.file.path)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2">
-                       <FileText className="w-3.5 h-3.5" /> Copy Path
-                  </button>
-                  {onSuggestionClick && (
-                      <>
-                          <button 
-                              onClick={() => {
-                                  onSuggestionClick(`Compress "${contextMenu.file.name}" into a zip file`);
-                                  setContextMenu(null);
-                              }}
-                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2"
-                          >
-                               <Box className="w-3.5 h-3.5" /> Compress
-                          </button>
-                          <div className="h-px bg-border my-1" />
-                          <button 
-                              onClick={() => {
-                                  const filesToTrash = selectedFiles.size > 1 && selectedFiles.has(contextMenu.file.path)
-                                      ? Array.from(selectedFiles).map(p => `"${p}"`).join(', ')
-                                      : `"${contextMenu.file.path}"`;
-                                  onSuggestionClick(`Move ${filesToTrash} to trash`);
-                                  setContextMenu(null);
-                              }}
-                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2 text-red-500 hover:text-red-600"
-                          >
-                               <X className="w-3.5 h-3.5" /> Move to Trash
-                          </button>
-                      </>
-                  )}
-                </motion.div>
-          )}
-      </AnimatePresence>
+      <FileContextMenu
+        contextMenu={contextMenu}
+        onClose={() => setContextMenu(null)}
+        onOpen={handleOpen}
+        onReveal={handleReveal}
+        onCopyPath={handleCopyPath}
+        onQuickLook={setPreviewFile}
+        onSuggestionClick={onSuggestionClick}
+        selectedFiles={selectedFiles}
+        isImageFile={isImageFile}
+      />
 
       <BatchRenameModal
         files={files.filter(f => selectedFiles.has(f.path))}

@@ -3,14 +3,17 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Send, Sparkles, LayoutPanelLeft, Plus, History } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { FileExplorer } from '../file-browser/FileExplorer';
 import { ChatMessage, ChatMessageLoading } from './ChatMessage';
 import { useFileSync } from './hooks/useFileSync';
 import { useChatStorage, StoredMessage } from './hooks/useChatStorage';
 import { HistorySidebar } from './HistorySidebar';
+import { ChatHeaderControls } from './ChatHeaderControls';
+import { ChatInputArea } from './ChatInputArea';
+import { ChatWelcomeScreen } from './ChatWelcomeScreen';
 
 // ============================================
 // ChatSession - Main chat component
@@ -26,7 +29,6 @@ function ChatSession({ apiPort }: { apiPort: number }) {
   // Chat persistence
   const {
     conversations,
-    currentConversation,
     currentConversationId,
     isLoading: isStorageLoading,
     createConversation,
@@ -43,7 +45,6 @@ function ChatSession({ apiPort }: { apiPort: number }) {
     handleNavigate,
     handleRefresh,
     handleClearFilters,
-    loadDesktop,
     processAIMessage,
     isRefreshing,
   } = useFileSync();
@@ -56,7 +57,6 @@ function ChatSession({ apiPort }: { apiPort: number }) {
 
   // Custom fetch that includes currentPath in the request body
   const customFetch = useCallback(async (url: string, options: RequestInit) => {
-    // Parse the existing body and add currentPath from ref (always latest)
     const body = options.body ? JSON.parse(options.body as string) : {};
     body.currentPath = currentPathRef.current;
     
@@ -64,7 +64,7 @@ function ChatSession({ apiPort }: { apiPort: number }) {
       ...options,
       body: JSON.stringify(body),
     });
-  }, []); // No deps - uses ref for latest value
+  }, []);
 
   // Chat hook with custom transport
   const { messages, sendMessage, status, addToolApprovalResponse } = useChat({
@@ -96,10 +96,8 @@ function ChatSession({ apiPort }: { apiPort: number }) {
   useEffect(() => {
     if (messages.length > 0 && currentConversationId) {
       const storedMessages: StoredMessage[] = messages.map(m => {
-        // Extract text content from parts
         const textPart = m.parts?.find((p: any) => p.type === 'text');
         const content = textPart ? (textPart as any).text : '';
-        
         return {
           id: m.id,
           role: m.role as 'user' | 'assistant' | 'system' | 'tool',
@@ -221,7 +219,6 @@ function ChatSession({ apiPort }: { apiPort: number }) {
         onDragLeave={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          // Only cancel if leaving the main container
           if (e.currentTarget.contains(e.relatedTarget as Node)) return;
           setIsDragging(false);
         }}
@@ -232,7 +229,6 @@ function ChatSession({ apiPort }: { apiPort: number }) {
 
           // 1. Handle files dropped from OS (Finder/Explorer)
           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            // Use Electron's webUtils to get file paths (sandbox-safe)
             const paths: string[] = [];
             Array.from(e.dataTransfer.files).forEach(file => {
               try {
@@ -243,13 +239,9 @@ function ChatSession({ apiPort }: { apiPort: number }) {
               }
             });
             
-            console.log('Extracted paths:', paths);
-
             if (paths.length > 0) {
               const textToInsert = paths.map(p => `"${p}"`).join(' ');
               setInputVal(prev => prev ? `${prev} ${textToInsert}` : textToInsert);
-              
-              // Focus input after drop
               setTimeout(() => inputRef.current?.focus(), 100);
             }
             return;
@@ -265,38 +257,16 @@ function ChatSession({ apiPort }: { apiPort: number }) {
         }}
       >
         
-        {/* Toggle Button */}
-        {/* Header Controls */}
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-2 no-drag">
-          {!showExplorer && activeFiles.length > 0 && (
-            <button 
-              onClick={() => setShowExplorer(true)}
-              className="p-2 bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors"
-              title="Show Files"
-            >
-              <LayoutPanelLeft size={16} />
-            </button>
-          )}
-
-          <button 
-            onClick={() => setShowHistory(true)}
-            className="p-2 bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors"
-            title="Chat History"
-          >
-            <History size={16} />
-          </button>
-
-          <button 
-            onClick={() => {
-              createConversation();
-              setTimeout(() => inputRef.current?.focus(), 100);
-            }}
-            className="p-2 bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors"
-            title="New Chat"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        <ChatHeaderControls
+          showExplorer={showExplorer}
+          setShowExplorer={setShowExplorer}
+          activeFilesCount={activeFiles.length}
+          setShowHistory={setShowHistory}
+          onNewChat={() => {
+             createConversation();
+             setTimeout(() => inputRef.current?.focus(), 100);
+          }}
+        />
         
         {/* Drag Overlay Message */}
         {isDragging && (
@@ -312,21 +282,7 @@ function ChatSession({ apiPort }: { apiPort: number }) {
         <div className="flex-1 overflow-y-auto space-y-4 p-4 scrollbar-thin scrollbar-thumb-primary/10">
           <AnimatePresence initial={false}>
             {/* Empty state */}
-            {messages.length === 0 && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-center h-full text-center space-y-4 pt-10"
-              >
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 ring-1 ring-primary/20">
-                  <Sparkles className="w-8 h-8 text-primary" />
-                </div>
-                <h2 className="text-2xl font-bold tracking-tight">How can I help you organize?</h2>
-                <p className="text-muted-foreground max-w-md">
-                  I can list files, read content, move, rename, and safely delete files for you.
-                </p>
-              </motion.div>
-            )}
+            {messages.length === 0 && <ChatWelcomeScreen />}
             
             {/* Message list */}
             {messages.map((m) => (
@@ -347,27 +303,13 @@ function ChatSession({ apiPort }: { apiPort: number }) {
         </div>
 
         {/* Input Area */}
-        <div className="relative p-4 pt-2">
-          <form 
-            onSubmit={handleSubmit} 
-            className="relative group"
-          >
-            <input
-              ref={inputRef}
-              className="w-full bg-secondary border border-border rounded-xl px-4 py-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium placeholder:text-muted-foreground"
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              placeholder="Describe a file task... (or drop files here)"
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !inputVal.trim()}
-              className="absolute right-3 top-3 p-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20 no-drag"
-            >
-              <Send size={16} />
-            </button>
-          </form>
-        </div>
+        <ChatInputArea
+            inputVal={inputVal}
+            setInputVal={setInputVal}
+            isLoading={isLoading}
+            onSubmit={handleSubmit}
+            inputRef={inputRef}
+        />
       </div>
     </div>
   );
