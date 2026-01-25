@@ -10,6 +10,7 @@ import { FileExplorer } from '../file-browser/FileExplorer';
 import { ChatMessage, ChatMessageLoading } from './ChatMessage';
 import { useFileSync } from './hooks/useFileSync';
 import { useChatStorage, StoredMessage } from './hooks/useChatStorage';
+import { HistorySidebar } from './HistorySidebar';
 
 // ============================================
 // ChatSession - Main chat component
@@ -164,7 +165,25 @@ function ChatSession({ apiPort }: { apiPort: number }) {
   }, [sendMessage, isLoading]);
 
   return (
-    <div className="flex h-full w-full overflow-hidden p-4 gap-4 pb-0 md:pb-4">
+    <div className="flex h-full w-full overflow-hidden p-4 gap-4 pb-0 md:pb-4 relative">
+      <HistorySidebar
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        onSelect={(id) => {
+          switchConversation(id);
+          setShowHistory(false);
+        }}
+        onDelete={deleteConversation}
+        onNewChat={() => {
+          createConversation();
+          setShowHistory(false);
+          // Focus input after creating new chat
+          setTimeout(() => inputRef.current?.focus(), 100);
+        }}
+      />
+
       {/* File Explorer Panel */}
       {showExplorer && (
         <div className="h-full shrink-0 w-[380px] border-r border-border/50">
@@ -245,15 +264,37 @@ function ChatSession({ apiPort }: { apiPort: number }) {
       >
         
         {/* Toggle Button */}
-        {!showExplorer && activeFiles.length > 0 && (
+        {/* Header Controls */}
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-2 no-drag">
+          {!showExplorer && activeFiles.length > 0 && (
+            <button 
+              onClick={() => setShowExplorer(true)}
+              className="p-2 bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors"
+              title="Show Files"
+            >
+              <LayoutPanelLeft size={16} />
+            </button>
+          )}
+
           <button 
-            onClick={() => setShowExplorer(true)}
-            className="absolute top-4 left-4 z-10 p-2 bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors no-drag"
-            title="Show Files"
+            onClick={() => setShowHistory(true)}
+            className="p-2 bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors"
+            title="Chat History"
           >
-            <LayoutPanelLeft size={16} />
+            <History size={16} />
           </button>
-        )}
+
+          <button 
+            onClick={() => {
+              createConversation();
+              setTimeout(() => inputRef.current?.focus(), 100);
+            }}
+            className="p-2 bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors"
+            title="New Chat"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
         
         {/* Drag Overlay Message */}
         {isDragging && (
