@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ThemeToggle } from '../ThemeToggle';
 import { ImageThumbnail } from './ImageThumbnail';
+import { FileExplorerSkeleton } from './FileExplorerSkeleton';
 
 export interface FileEntry {
   name: string;
@@ -23,6 +24,7 @@ interface FileExplorerProps {
   onNavigate?: (path: string) => void;
   onRefresh?: () => void;
   onSuggestionClick?: (message: string) => void;
+  isLoading?: boolean;
 }
 
 const formatSize = (bytes: number) => {
@@ -61,7 +63,17 @@ const getFileIcon = (name: string, isDirectory: boolean) => {
   }
 };
 
-export function FileExplorer({ files, currentPath, className, activeFilters, onClearFilters, onNavigate, onRefresh, onSuggestionClick }: FileExplorerProps) {
+export function FileExplorer({ 
+  files, 
+  currentPath, 
+  className, 
+  activeFilters,
+  onClearFilters,
+  onNavigate,
+  onRefresh,
+  onSuggestionClick,
+  isLoading = false
+}: FileExplorerProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file: FileEntry } | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());

@@ -45,6 +45,7 @@ function ChatSession({ apiPort }: { apiPort: number }) {
     handleClearFilters,
     loadDesktop,
     processAIMessage,
+    isRefreshing,
   } = useFileSync();
 
   // Use ref to always get latest currentPath in fetch (avoids stale closure)
@@ -196,6 +197,7 @@ function ChatSession({ apiPort }: { apiPort: number }) {
             onNavigate={handleNavigate}
             onRefresh={handleRefresh}
             onSuggestionClick={sendQuickMessage}
+            isLoading={isRefreshing}
           />
         </div>
       )}
