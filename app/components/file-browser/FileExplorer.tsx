@@ -61,6 +61,8 @@ const getFileIcon = (name: string, isDirectory: boolean) => {
 export function FileExplorer({ files, currentPath, className, activeFilters, onClearFilters, onNavigate, onRefresh, onSuggestionClick }: FileExplorerProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file: FileEntry } | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
   const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
@@ -177,15 +179,37 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
           if (e.key === 'Escape') {
               setPreviewFile(null);
               setContextMenu(null);
+              setSelectedFiles(new Set());
+              setSelectedFile(null);
           }
+          // Spacebar for Quick Look
           if (e.key === ' ' && selectedFile && (isImageFile(selectedFile.name) || isTextFile(selectedFile.name))) {
               e.preventDefault();
               setPreviewFile(prev => prev ? null : selectedFile);
           }
+          // Enter to open selected file
+          if (e.key === 'Enter' && selectedFile) {
+              e.preventDefault();
+              if (selectedFile.isDirectory && onNavigate) {
+                  onNavigate(selectedFile.path);
+              } else {
+                  window.electron?.openPath(selectedFile.path);
+              }
+          }
+          // Cmd+Backspace to trash selected files
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Backspace' && selectedFiles.size > 0 && onSuggestionClick) {
+              e.preventDefault();
+              const paths = Array.from(selectedFiles);
+              if (paths.length === 1) {
+                  onSuggestionClick(`Move "${paths[0]}" to trash`);
+              } else {
+                  onSuggestionClick(`Move these ${paths.length} files to trash: ${paths.map(p => `"${p}"`).join(', ')}`);
+              }
+          }
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedFile]);
+  }, [selectedFile, selectedFiles, onNavigate, onSuggestionClick]);
 
   const handleContextMenu = (e: React.MouseEvent, file: FileEntry) => {
       e.preventDefault();
@@ -220,8 +244,38 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
       setContextMenu(null);
   };
 
-  const handleClick = (file: FileEntry) => {
-      setSelectedFile(file);
+  const handleClick = (file: FileEntry, index: number, e: React.MouseEvent) => {
+      const isShiftKey = e.shiftKey;
+      const isCmdKey = e.metaKey || e.ctrlKey;
+      
+      if (isShiftKey && lastSelectedIndex >= 0) {
+          // Shift+Click: Select range
+          const start = Math.min(lastSelectedIndex, index);
+          const end = Math.max(lastSelectedIndex, index);
+          const newSelection = new Set<string>(selectedFiles);
+          for (let i = start; i <= end; i++) {
+              newSelection.add(files[i].path);
+          }
+          setSelectedFiles(newSelection);
+          setSelectedFile(file);
+      } else if (isCmdKey) {
+          // Cmd+Click: Toggle selection
+          const newSelection = new Set<string>(selectedFiles);
+          if (newSelection.has(file.path)) {
+              newSelection.delete(file.path);
+          } else {
+              newSelection.add(file.path);
+          }
+          setSelectedFiles(newSelection);
+          setSelectedFile(newSelection.size > 0 ? file : null);
+          setLastSelectedIndex(index);
+      } else {
+          // Normal click: Single select
+          setSelectedFiles(new Set([file.path]));
+          setSelectedFile(file);
+          setLastSelectedIndex(index);
+      }
+      
       // Auto-preview images or text on click
       if (isImageFile(file.name) || isTextFile(file.name)) {
           setPreviewFile(file);
@@ -229,6 +283,13 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
           setPreviewFile(null);
       }
   };
+  
+  // Clear selection when files change (e.g., navigate to new folder)
+  useEffect(() => {
+      setSelectedFiles(new Set());
+      setSelectedFile(null);
+      setLastSelectedIndex(-1);
+  }, [currentPath]);
 
   return (
     <div className={cn("bg-card border border-border rounded-xl overflow-hidden flex flex-col h-full relative select-none shadow-sm", className)} ref={containerRef}>
@@ -251,6 +312,12 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                 )}
                 <Folder className="w-4 h-4 text-blue-500" />
                 File Explorer
+                {/* Selection count badge */}
+                {selectedFiles.size > 1 && (
+                    <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] font-medium rounded-full">
+                        {selectedFiles.size} selected
+                    </span>
+                )}
             </h3>
             {/* Refresh button */}
             {onRefresh && (
@@ -348,7 +415,7 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: Math.min(idx * 0.01, 0.5) }}
-                        onClick={() => handleClick(file)}
+                        onClick={(e) => handleClick(file, idx, e)}
                         onContextMenu={(e) => handleContextMenu(e, file)}
                         onDoubleClick={() => {
                             if (file.isDirectory && onNavigate) {
@@ -359,12 +426,18 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                         }}
                         draggable
                         onDragStart={(e: any) => {
-                            e.dataTransfer.setData("text/plain", file.path);
+                            // If dragging a selected file, include all selected files
+                            if (selectedFiles.has(file.path) && selectedFiles.size > 1) {
+                                const paths = Array.from(selectedFiles).join('\n');
+                                e.dataTransfer.setData("text/plain", paths);
+                            } else {
+                                e.dataTransfer.setData("text/plain", file.path);
+                            }
                             e.dataTransfer.effectAllowed = "copy";
                         }}
                         className={cn(
                             "group flex items-center gap-2 px-3 py-1.5 cursor-default transition-colors border-b border-border/50 text-xs",
-                            selectedFile?.path === file.path 
+                            selectedFiles.has(file.path) 
                                 ? "bg-primary/10 text-primary" 
                                 : "hover:bg-secondary"
                         )}
@@ -489,6 +562,32 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                   <button onClick={() => handleCopyPath(contextMenu.file.path)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2">
                        <FileText className="w-3.5 h-3.5" /> Copy Path
                   </button>
+                  {onSuggestionClick && (
+                      <>
+                          <button 
+                              onClick={() => {
+                                  onSuggestionClick(`Compress "${contextMenu.file.name}" into a zip file`);
+                                  setContextMenu(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2"
+                          >
+                               <Box className="w-3.5 h-3.5" /> Compress
+                          </button>
+                          <div className="h-px bg-border my-1" />
+                          <button 
+                              onClick={() => {
+                                  const filesToTrash = selectedFiles.size > 1 && selectedFiles.has(contextMenu.file.path)
+                                      ? Array.from(selectedFiles).map(p => `"${p}"`).join(', ')
+                                      : `"${contextMenu.file.path}"`;
+                                  onSuggestionClick(`Move ${filesToTrash} to trash`);
+                                  setContextMenu(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2 text-red-500 hover:text-red-600"
+                          >
+                               <X className="w-3.5 h-3.5" /> Move to Trash
+                          </button>
+                      </>
+                  )}
               </motion.div>
           )}
       </AnimatePresence>
