@@ -67,7 +67,14 @@ export function createReadTools({ fsTools, shell }: ReadToolDependencies) {
       inputSchema: z.object({
         path: z.string().describe('The absolute path to the folder'),
       }),
-      execute: async ({ path }) => fsTools.calculateFolderSize({ path }),
+      execute: async ({ path }) => {
+        const bytes = await fsTools.calculateFolderSize({ path });
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        if (bytes === 0) return 'Total size: 0 B';
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        const formatted = parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+        return `Total size: ${formatted} (${bytes} bytes)`;
+      },
     }),
 
     readFile: tool({
