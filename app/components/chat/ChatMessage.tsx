@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import React from 'react';
 import { Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolResultRenderer } from './ToolResultRenderer';
@@ -12,7 +12,7 @@ interface ChatMessageProps {
   onSendMessage?: (message: string) => void;
 }
 
-export function ChatMessage({ message, addToolApprovalResponse, onSendMessage }: ChatMessageProps) {
+export const ChatMessage = React.memo(function ChatMessage({ message, addToolApprovalResponse, onSendMessage }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   const handleApprove = (approvalId: string) => {
@@ -41,12 +41,9 @@ export function ChatMessage({ message, addToolApprovalResponse, onSendMessage }:
   });
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.2 }}
+    <div
       className={cn(
-        "flex w-full mb-4",
+        "flex w-full mb-4 animate-in fade-in slide-in-from-bottom-2 duration-200",
         isUser ? "justify-end" : "justify-start"
       )}
     >
@@ -108,18 +105,14 @@ export function ChatMessage({ message, addToolApprovalResponse, onSendMessage }:
           })}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
-}
+});
 
 // Loading indicator for when bot is typing
 export function ChatMessageLoading() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="flex w-full mb-4 justify-start"
-    >
+    <div className="flex w-full mb-4 justify-start animate-in fade-in slide-in-from-bottom-2 duration-200">
       <div className="flex max-w-[85%] rounded-2xl p-4 shadow-sm border bg-card text-card-foreground border-border rounded-tl-sm ml-2">
         <div className="mr-3 mt-1 min-w-[24px]">
           <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
@@ -132,6 +125,6 @@ export function ChatMessageLoading() {
           <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

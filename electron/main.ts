@@ -174,31 +174,55 @@ app.on("ready", async () => {
   });
 
   // Calculate folder size
+  // Calculate folder size (Worker Thread)
   ipcMain.handle('get-folder-size', async (event, folderPath: string) => {
       if (!isPathAllowed(folderPath)) {
           throw new Error('Access denied: Path outside allowed directory');
       }
-      const { fsTools } = require('./tools/fs');
-      try {
-          return await fsTools.calculateFolderSize({ path: folderPath });
-      } catch (err: any) {
-          console.error('Failed to calculate folder size:', err);
-          return 0; // Return 0 on error
-      }
+      return new Promise((resolve, reject) => {
+          const { Worker } = require('worker_threads');
+          const workerPath = path.join(__dirname, 'tools/searchWorker.js');
+          const worker = new Worker(workerPath);
+          
+          worker.on('message', (msg: any) => {
+              if (msg.type === 'success') resolve(msg.results);
+              else resolve(0);
+              worker.terminate();
+          });
+          worker.on('error', (err: any) => {
+              resolve(0);
+              worker.terminate();
+          });
+          worker.postMessage({ type: 'size', payload: { path: folderPath } });
+      });
   });
 
-  // Get Directory Stats (Dashboard)
+  // Get Directory Stats (Worker Thread)
   ipcMain.handle('get-directory-stats', async (event, folderPath: string) => {
       if (!isPathAllowed(folderPath)) {
           throw new Error('Access denied: Path outside allowed directory');
       }
-      const { fsTools } = require('./tools/fs');
-      try {
-          return await fsTools.getDirectoryStats({ path: folderPath });
-      } catch (err: any) {
-          console.error('Failed to get directory stats:', err);
-          return { totalSize: 0, fileCount: 0, folderCount: 0, types: {} };
-      }
+      // Re-use worker logic (refactor if repeated often)
+      return new Promise((resolve, reject) => {
+          const { Worker } = require('worker_threads');
+          const workerPath = path.join(__dirname, 'tools/searchWorker.js');
+          const worker = new Worker(workerPath);
+          
+          worker.on('message', (msg: any) => {
+              if (msg.type === 'success') resolve(msg.results);
+              else {
+                  console.error('Stats worker error:', msg.error);
+                  resolve({ totalSize: 0, fileCount: 0, folderCount: 0, types: {} });
+              }
+              worker.terminate();
+          });
+          worker.on('error', (err: any) => {
+              console.error('Stats worker unexpected error:', err);
+              resolve({ totalSize: 0, fileCount: 0, folderCount: 0, types: {} });
+              worker.terminate(); 
+          });
+          worker.postMessage({ type: 'stats', payload: { path: folderPath } });
+      });
   });
 
   // Search Content (Worker Thread)

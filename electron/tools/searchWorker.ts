@@ -21,15 +21,76 @@ try {
 }
 
 parentPort?.on('message', async (task) => {
-    if (task.type === 'search') {
-        try {
+    try {
+        if (task.type === 'search') {
             const results = await searchContent(task.payload);
             parentPort?.postMessage({ type: 'success', results });
-        } catch (error: any) {
-            parentPort?.postMessage({ type: 'error', error: error.message });
+        } else if (task.type === 'stats') {
+            const results = await getDirectoryStats(task.payload.path);
+            parentPort?.postMessage({ type: 'success', results });
+        } else if (task.type === 'size') {
+            const results = await calculateFolderSize(task.payload.path);
+            parentPort?.postMessage({ type: 'success', results });
         }
+    } catch (error: any) {
+        parentPort?.postMessage({ type: 'error', error: error.message });
     }
 });
+
+async function getDirectoryStats(dirPath: string) {
+    let totalSize = 0;
+    let fileCount = 0;
+    let folderCount = 0;
+    const types: Record<string, number> = {};
+
+    async function scan(currentPath: string) {
+        const entries = await fs.readdir(currentPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+            const fullPath = path.join(currentPath, entry.name);
+            
+            if (entry.isDirectory()) {
+                if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+                folderCount++;
+                await scan(fullPath);
+            } else if (entry.isFile()) {
+                if (entry.name === '.DS_Store') continue;
+                fileCount++;
+                try {
+                    const stats = await fs.stat(fullPath);
+                    totalSize += stats.size;
+                    
+                    const ext = path.extname(entry.name).toLowerCase().replace('.', '') || 'unknown';
+                    types[ext] = (types[ext] || 0) + 1;
+                } catch (e) {}
+            }
+        }
+    }
+
+    await scan(dirPath);
+    return { totalSize, fileCount, folderCount, types };
+}
+
+async function calculateFolderSize(dirPath: string) {
+     let totalSize = 0;
+     async function scan(currentPath: string) {
+        const entries = await fs.readdir(currentPath, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(currentPath, entry.name);
+            if (entry.isDirectory()) {
+                if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+                await scan(fullPath);
+            } else if (entry.isFile()) {
+                try {
+                    const stats = await fs.stat(fullPath);
+                    totalSize += stats.size;
+                } catch (e) {}
+            }
+        }
+     }
+     await scan(dirPath);
+     return totalSize;
+}
 
 interface SearchOptions {
     directory: string; 

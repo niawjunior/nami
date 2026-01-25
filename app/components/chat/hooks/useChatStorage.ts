@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 const DB_NAME = 'nami-chat';
 const STORE_NAME = 'conversations';
@@ -109,40 +109,50 @@ export function useChatStorage() {
     }
   }, []);
 
-  // Save messages to current conversation
+  // Save messages to current conversation (debounced)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   const saveMessages = useCallback(async (messages: StoredMessage[]) => {
     if (!currentConversationId) return;
     
-    try {
-      const db = await openDB();
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      
-      const getRequest = store.get(currentConversationId);
-      getRequest.onsuccess = () => {
-        const conv = getRequest.result as Conversation;
-        if (conv) {
-          conv.messages = messages;
-          conv.updatedAt = new Date();
-          // Update title from first user message if default
-          if (conv.title === 'New Chat' && messages.length > 0) {
-            const firstUserMsg = messages.find(m => m.role === 'user');
-            if (firstUserMsg) {
-              conv.title = firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '');
-            }
-          }
-          store.put(conv);
-          
-          // Update local state
-          setConversations(prev => 
-            prev.map(c => c.id === currentConversationId ? conv : c)
-                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-          );
-        }
-      };
-    } catch (err) {
-      console.error('Failed to save messages:', err);
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
+    
+    // Debounce: wait 2 seconds before actually saving
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        
+        const getRequest = store.get(currentConversationId);
+        getRequest.onsuccess = () => {
+          const conv = getRequest.result as Conversation;
+          if (conv) {
+            conv.messages = messages;
+            conv.updatedAt = new Date();
+            // Update title from first user message if default
+            if (conv.title === 'New Chat' && messages.length > 0) {
+              const firstUserMsg = messages.find(m => m.role === 'user');
+              if (firstUserMsg) {
+                conv.title = firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '');
+              }
+            }
+            store.put(conv);
+            
+            // Update local state
+            setConversations(prev => 
+              prev.map(c => c.id === currentConversationId ? conv : c)
+                  .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+            );
+          }
+        };
+      } catch (err) {
+        console.error('Failed to save messages:', err);
+      }
+    }, 2000);
   }, [currentConversationId]);
 
   // Delete conversation

@@ -4,7 +4,6 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Sparkles } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { FileExplorer } from '../file-browser/FileExplorer';
 import { ChatMessage, ChatMessageLoading } from './ChatMessage';
@@ -289,7 +288,6 @@ function ChatSession({ apiPort }: { apiPort: number }) {
         
         {/* Messages */}
         <div className="flex-1 overflow-y-auto space-y-4 p-4 scrollbar-thin scrollbar-thumb-primary/10">
-          <AnimatePresence initial={false}>
             {/* Empty state */}
             {messages.length === 0 && <ChatWelcomeScreen />}
             
@@ -307,7 +305,6 @@ function ChatSession({ apiPort }: { apiPort: number }) {
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
               <ChatMessageLoading />
             )}
-          </AnimatePresence>
           <div ref={messagesEndRef} />
         </div>
 
