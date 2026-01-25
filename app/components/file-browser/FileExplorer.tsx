@@ -14,6 +14,7 @@ import { useFolderSizes } from './useFolderSizes';
 import { useFileNavigation } from './useFileNavigation';
 import { useSmartSuggestions } from './useSmartSuggestions';
 import { useFileExplorerHotkeys } from './useFileExplorerHotkeys';
+import { Dashboard } from '../dashboard/Dashboard';
 
 export interface FileEntry {
   name: string;
@@ -22,6 +23,7 @@ export interface FileEntry {
   size: number;
   lastModified: number;
   childCount?: number;
+  preview?: string; // Search result preview
 }
 
 interface FileExplorerProps {
@@ -61,15 +63,27 @@ export function FileExplorer({
   const [showBatchRename, setShowBatchRename] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMode, setSearchMode] = useState<'name' | 'content'>('name');
+  const [searchResults, setSearchResults] = useState<FileEntry[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   
   // Custom Hooks
   const { recentPaths, quickPaths } = useFileNavigation(currentPath);
-  const { selectedFiles, setSelectedFiles, handleSelect: handleSelectionChange, clearSelection } = useFileSelection(files);
+  
+  // Determine displayed files
+  const displayedFiles = isSearching && searchMode === 'content' ? searchResults : 
+                         searchQuery && searchMode === 'name' ? files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())) :
+                         files;
+
+  const { selectedFiles, setSelectedFiles, handleSelect: handleSelectionChange, clearSelection } = useFileSelection(displayedFiles);
   const { folderSizes, handleCalculateSize } = useFolderSizes();
   const suggestion = useSmartSuggestions(files);
 
   useFileExplorerHotkeys({
-      files,
+      files: displayedFiles,
       selectedFiles,
       onNavigate,
       onSuggestionClick,
@@ -77,6 +91,44 @@ export function FileExplorer({
       setContextMenu,
       clearSelection
   });
+
+  // Handle Search
+  useEffect(() => {
+    if (!searchQuery || searchMode === 'name') {
+        setIsSearching(false);
+        setSearchResults([]);
+        return;
+    }
+
+    if (searchMode === 'content' && searchQuery.length > 2 && currentPath) {
+        setIsSearching(true);
+        const timer = setTimeout(async () => {
+             try {
+                 const result = await window.electron.searchContent({
+                     directory: currentPath,
+                     query: searchQuery,
+                     extensions: activeFilters
+                 });
+                 
+                 const entries: FileEntry[] = result.matches.map(m => ({
+                     name: m.file.split(/[\\/]/).pop() || m.file,
+                     path: m.file,
+                     isDirectory: false,
+                     size: 0,
+                     lastModified: Date.now(),
+                     preview: m.preview
+                 }));
+                 setSearchResults(entries);
+             } catch (err) {
+                 console.error(err);
+             } finally {
+                 // Keep isSearching true to show Results state, but maybe indicate loading finished?
+                 // For now simplicity:
+             }
+        }, 500); // Debounce
+        return () => clearTimeout(timer);
+    }
+  }, [searchQuery, searchMode, currentPath, activeFilters]);
 
   // Close context menu
   useEffect(() => {
@@ -89,6 +141,8 @@ export function FileExplorer({
   useEffect(() => {
       clearSelection();
       setPreviewFile(null);
+      setSearchQuery(''); 
+      setIsSearching(false);
   }, [currentPath, clearSelection]);
 
   const handleOpen = async (file: FileEntry) => {
@@ -134,17 +188,30 @@ export function FileExplorer({
         quickPaths={quickPaths}
         recentPaths={recentPaths}
         suggestion={suggestion}
+        onSearch={(q, m) => {
+            setSearchQuery(q);
+            setSearchMode(m);
+        }}
+        isSearching={isSearching}
       />
       
+      {!currentPath ? (
+        <Dashboard 
+            onNavigate={onNavigate || (() => {})} 
+            onOpen={(path) => window.electron?.openPath(path)} 
+        />
+      ) : (
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-        {files.length === 0 ? (
+        {displayedFiles.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2 p-4">
                 <Folder className="w-10 h-10 stroke-1" />
-                <p className="text-xs">No files listed</p>
+                <p className="text-xs">
+                    {isSearching ? "No matches found" : "No files listed"}
+                </p>
             </div>
         ) : (
             <div className="flex flex-col">
-                {files.map((file, idx) => (
+                {displayedFiles.map((file, idx) => (
                     <FileEntryRow
                         key={file.path + idx}
                         index={idx}
@@ -175,6 +242,7 @@ export function FileExplorer({
             </div>
         )}
       </div>
+      )}
 
       <FilePreviewPanel 
          previewFile={previewFile}
@@ -196,7 +264,7 @@ export function FileExplorer({
       />
 
       <BatchRenameModal
-        files={files.filter(f => selectedFiles.has(f.path))}
+        files={displayedFiles.filter(f => selectedFiles.has(f.path))}
         isOpen={showBatchRename}
         onClose={() => setShowBatchRename(false)}
         onComplete={() => {

@@ -2,7 +2,15 @@
 
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { FileEntry } from './FileExplorer';
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  lastModified: number;
+  childCount?: number;
+  preview?: string;
+}
 import { ImageThumbnail } from './ImageThumbnail';
 import { Folder, File, FileText, Image as ImageIcon, Music, Video, Code, Box } from 'lucide-react';
 
@@ -100,8 +108,13 @@ export function FileEntryRow({
                     getFileIcon(file.name, file.isDirectory)
                 )}
             </div>
-            <div className="flex-1 min-w-0 truncate font-medium text-foreground">
-                {file.name || '(unnamed)'}
+            <div className="flex-1 min-w-0 font-medium text-foreground overflow-hidden">
+                <div className="truncate">{file.name || '(unnamed)'}</div>
+                {file.preview && (
+                    <div className="text-[10px] text-muted-foreground/80 font-mono truncate border-l-2 border-primary/20 pl-1 mt-0.5">
+                        {file.preview.trim()}
+                    </div>
+                )}
             </div>
             <div className="shrink-0 text-[10px] text-muted-foreground font-mono">
                 {customDisplaySize ? (

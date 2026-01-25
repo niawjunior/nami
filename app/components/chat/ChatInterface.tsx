@@ -183,9 +183,11 @@ function ChatSession({ apiPort }: { apiPort: number }) {
         }}
       />
 
-      {/* File Explorer Panel */}
       {showExplorer && (
-        <div className="h-full shrink-0 w-[380px] border-r border-border/50">
+        <div className={cn(
+          "h-full shrink-0 border-r border-border/50 transition-all duration-300",
+          !currentPath ? "w-[850px]" : "w-[380px]"
+        )}>
           <FileExplorer 
             files={activeFiles} 
             currentPath={currentPath}

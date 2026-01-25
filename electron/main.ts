@@ -184,6 +184,34 @@ app.on("ready", async () => {
       }
   });
 
+  // Get Directory Stats (Dashboard)
+  ipcMain.handle('get-directory-stats', async (event, folderPath: string) => {
+      if (!isPathAllowed(folderPath)) {
+          throw new Error('Access denied: Path outside allowed directory');
+      }
+      const { fsTools } = require('./tools/fs');
+      try {
+          return await fsTools.getDirectoryStats({ path: folderPath });
+      } catch (err: any) {
+          console.error('Failed to get directory stats:', err);
+          return { totalSize: 0, fileCount: 0, folderCount: 0, types: {} };
+      }
+  });
+
+  // Search Content
+  ipcMain.handle('search-content', async (event, args: { directory: string; query: string; extensions?: string[] }) => {
+      if (!isPathAllowed(args.directory)) {
+          throw new Error('Access denied: Path outside allowed directory');
+      }
+      const { fsTools } = require('./tools/fs');
+      try {
+          return await fsTools.searchContent(args);
+      } catch (err: any) {
+          console.error('Failed to search content:', err);
+          return { matches: [], totalMatches: 0, searchedFiles: 0 };
+      }
+  });
+
   // File Watcher
   let currentWatcher: any = null;
   const chokidar = require('chokidar');

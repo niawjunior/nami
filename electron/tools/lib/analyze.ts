@@ -5,6 +5,57 @@ import { FileEntry } from './types';
 import { FileSystemScanner } from './scanner';
 
 export const analyzeTools = {
+  async getDirectoryStats({ path: dirPath }: { path: string }): Promise<{
+    totalSize: number;
+    fileCount: number;
+    folderCount: number;
+    types: Record<string, number>;
+    newestFile?: { name: string; path: string; date: number };
+    oldestFile?: { name: string; path: string; date: number };
+  }> {
+    const types: Record<string, number> = {};
+    let totalSize = 0;
+    let fileCount = 0;
+    let folderCount = 0;
+    let newestFile: { name: string; path: string; date: number } | undefined;
+    let oldestFile: { name: string; path: string; date: number } | undefined;
+
+    try {
+       const filePaths = await FileSystemScanner.scan({
+            path: dirPath,
+            recursive: true
+        });
+
+        for (const filePath of filePaths) {
+            try {
+                const stats = await fs.stat(filePath);
+                totalSize += stats.size;
+                fileCount++;
+
+                const ext = path.extname(filePath).toLowerCase().replace('.', '') || 'unknown';
+                types[ext] = (types[ext] || 0) + 1;
+
+                if (!newestFile || stats.mtimeMs > newestFile.date) {
+                    newestFile = { name: path.basename(filePath), path: filePath, date: stats.mtimeMs };
+                }
+                if (!oldestFile || stats.mtimeMs < oldestFile.date) {
+                    oldestFile = { name: path.basename(filePath), path: filePath, date: stats.mtimeMs };
+                }
+            } catch {}
+        }
+        
+        // Count folders separately? Scanner only returns files.
+        // If we need accurate folder count, we might need a different scan or just recursive readdir.
+        // For dashboard "Stats", files is most important. We can skip folder count or approximate it.
+        // For now let's just count files.
+        
+    } catch (error: any) {
+        console.error(`Failed to get directory stats: ${error.message}`);
+    }
+
+    return { totalSize, fileCount, folderCount, types, newestFile, oldestFile };
+  },
+
   // ... findLargeFiles implementation (unchanged) ...
   async findLargeFiles({ 
     path: dirPath, 

@@ -19,6 +19,13 @@ export function useFileSync() {
     if (isRefreshing) return;
     setIsRefreshing(true);
     
+    if (!path) {
+        setCurrentPath('');
+        setActiveFiles([]);
+        setIsRefreshing(false);
+        return;
+    }
+
     try {
       const res = await window.electron.listFiles({ path, extensions });
       if (res.success && Array.isArray(res.files)) {
