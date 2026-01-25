@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ThemeToggle } from '../ThemeToggle';
+import { ImageThumbnail } from './ImageThumbnail';
 
 export interface FileEntry {
   name: string;
@@ -506,7 +507,13 @@ export function FileExplorer({ files, currentPath, className, activeFilters, onC
                                 : "hover:bg-secondary"
                         )}
                     >
-                        <div className="shrink-0">{getFileIcon(file.name, file.isDirectory)}</div>
+                        <div className="shrink-0">
+                            {isImageFile(file.name) ? (
+                                <ImageThumbnail path={file.path} name={file.name} size={20} className="rounded-sm" />
+                            ) : (
+                                getFileIcon(file.name, file.isDirectory)
+                            )}
+                        </div>
                         <div className="flex-1 min-w-0 truncate font-medium text-foreground">
                             {file.name || '(unnamed)'}
                         </div>
