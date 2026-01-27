@@ -31,6 +31,7 @@ export interface ElectronAPI {
     totalMatches: number;
     searchedFiles: number;
   }>;
+  analyzeDependencies: (path: string) => Promise<{ nodes: any[]; edges: any[] }>;
   getPathForFile: (file: File) => string;
   automation: {
     getRules: () => Promise<any[]>;

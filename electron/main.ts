@@ -267,6 +267,34 @@ app.on("ready", async () => {
       });
   });
 
+  // Analyze Dependencies (Worker Thread)
+  ipcMain.handle('analyze-dependencies', async (event, rootPath: string) => {
+      if (!isPathAllowed(rootPath)) {
+          throw new Error('Access denied: Path outside allowed directory');
+      }
+
+      return new Promise((resolve, reject) => {
+          const { Worker } = require('worker_threads');
+          const workerPath = path.join(__dirname, 'tools/searchWorker.js');
+          const worker = new Worker(workerPath);
+          
+          worker.on('message', (msg: any) => {
+              if (msg.type === 'success') resolve(msg.results);
+              else {
+                  console.error('Deps worker error:', msg.error);
+                  resolve({ nodes: [], edges: [] });
+              }
+              worker.terminate();
+          });
+          worker.on('error', (err: any) => {
+              console.error('Deps worker unexpected error:', err);
+              resolve({ nodes: [], edges: [] });
+              worker.terminate(); 
+          });
+          worker.postMessage({ type: 'deps', payload: { path: rootPath } });
+      });
+  });
+
   // File Watcher
   let currentWatcher: any = null;
   const chokidar = require('chokidar');

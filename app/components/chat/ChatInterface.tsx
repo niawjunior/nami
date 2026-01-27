@@ -14,11 +14,13 @@ import { ChatHeaderControls } from './ChatHeaderControls';
 import { ChatInputArea } from './ChatInputArea';
 import { ChatWelcomeScreen } from './ChatWelcomeScreen';
 import { AutomationPanel } from '../automation/AutomationPanel';
+import VisualProjectMap from '../visual/VisualProjectMap';
 
 // ... (existing imports)
 
 function ChatSession({ apiPort }: { apiPort: number }) {
   const [inputVal, setInputVal] = useState('');
+  const [viewMode, setViewMode] = useState<'chat' | 'visual'>('chat');
   const [showExplorer, setShowExplorer] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
@@ -269,53 +271,67 @@ function ChatSession({ apiPort }: { apiPort: number }) {
              setTimeout(() => inputRef.current?.focus(), 100);
           }}
           onShowAutomation={() => setShowAutomation(true)}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
         />
         
-        <AutomationPanel 
-            isOpen={showAutomation} 
-            onClose={() => setShowAutomation(false)} 
-        />
-        
-        {/* Drag Overlay Message */}
-        {isDragging && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
-            <div className="flex flex-col items-center gap-2 p-6 rounded-xl border border-primary/20 bg-primary/10 text-primary animate-in fade-in zoom-in duration-200">
-              <Sparkles className="w-8 h-8 animate-bounce" />
-              <p className="font-semibold text-lg">Drop files to add context</p>
-            </div>
-          </div>
-        )}
-        
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-4 p-4 scrollbar-thin scrollbar-thumb-primary/10">
-            {/* Empty state */}
-            {messages.length === 0 && <ChatWelcomeScreen />}
+        {viewMode === 'chat' ? (
+          <>
+            {/* Automation Panel (Overlaid on chat) */}
+            <AutomationPanel 
+                isOpen={showAutomation} 
+                onClose={() => setShowAutomation(false)} 
+            />
             
-            {/* Message list */}
-            {messages.map((m) => (
-              <ChatMessage 
-                key={m.id} 
-                message={m} 
-                addToolApprovalResponse={addToolApprovalResponse}
-                onSendMessage={sendQuickMessage}
-              />
-            ))}
-
-            {/* Loading indicator */}
-            {isLoading && messages[messages.length - 1]?.role === 'user' && (
-              <ChatMessageLoading />
+            {/* Drag Overlay Message */}
+            {isDragging && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
+                <div className="flex flex-col items-center gap-2 p-6 rounded-xl border border-primary/20 bg-primary/10 text-primary animate-in fade-in zoom-in duration-200">
+                  <Sparkles className="w-8 h-8 animate-bounce" />
+                  <p className="font-semibold text-lg">Drop files to add context</p>
+                </div>
+              </div>
             )}
-          <div ref={messagesEndRef} />
-        </div>
+            
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto space-y-4 p-4 scrollbar-thin scrollbar-thumb-primary/10">
+                {/* Empty state */}
+                {messages.length === 0 && <ChatWelcomeScreen />}
+                
+                {/* Message list */}
+                {messages.map((m) => (
+                  <ChatMessage 
+                    key={m.id} 
+                    message={m} 
+                    addToolApprovalResponse={addToolApprovalResponse}
+                    onSendMessage={sendQuickMessage}
+                  />
+                ))}
 
-        {/* Input Area */}
-        <ChatInputArea
-            inputVal={inputVal}
-            setInputVal={setInputVal}
-            isLoading={isLoading}
-            onSubmit={handleSubmit}
-            inputRef={inputRef}
-        />
+                {/* Loading indicator */}
+                {isLoading && messages[messages.length - 1]?.role === 'user' && (
+                  <ChatMessageLoading />
+                )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <ChatInputArea
+                inputVal={inputVal}
+                setInputVal={setInputVal}
+                isLoading={isLoading}
+                onSubmit={handleSubmit}
+                inputRef={inputRef}
+            />
+          </>
+        ) : (
+          <VisualProjectMap 
+            files={activeFiles}
+            currentPath={currentPath}
+            onNavigate={handleNavigate}
+            onOpenFile={(path) => window.electron.openPath(path)}
+          />
+        )}
       </div>
     </div>
   );

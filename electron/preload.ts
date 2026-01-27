@@ -18,7 +18,9 @@ contextBridge.exposeInMainWorld("electron", {
   batchRename: (operations: { original: string; new: string }[]) => ipcRenderer.invoke('batch-rename', operations),
   getFolderSize: (path: string) => ipcRenderer.invoke('get-folder-size', path),
   getDirectoryStats: (path: string) => ipcRenderer.invoke('get-directory-stats', path),
+
   searchContent: (args: { directory: string; query: string; extensions?: string[] }) => ipcRenderer.invoke('search-content', args),
+  analyzeDependencies: (path: string) => ipcRenderer.invoke('analyze-dependencies', path),
   
   // Get file path from dropped File object (for drag & drop with sandbox enabled)
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

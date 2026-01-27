@@ -38,7 +38,9 @@
         "arch": "arm64"
       },
       "category": "public.app-category.productivity",
-      "electronLanguages": ["en"]
+      "electronLanguages": [
+        "en"
+      ]
     },
     "extraResources": [
       ".env"
@@ -67,10 +69,12 @@
     "@hono/node-server": "^1.19.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
+    "@types/dagre": "^0.7.53",
     "ai": "^6.0.33",
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dagre": "^0.8.5",
     "dotenv": "^17.2.3",
     "electron-serve": "^3.0.0",
     "electron-store": "^8.2.0",
@@ -85,6 +89,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-virtuoso": "^4.18.1",
+    "reactflow": "^11.11.4",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
