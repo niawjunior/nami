@@ -15,6 +15,7 @@ import { ChatInputArea } from './ChatInputArea';
 import { ChatWelcomeScreen } from './ChatWelcomeScreen';
 import { AutomationPanel } from '../automation/AutomationPanel';
 import VisualProjectMap from '../visual/VisualProjectMap';
+import { useVoiceControl } from '../voice/VoiceControlProvider';
 
 // ... (existing imports)
 
@@ -164,6 +165,69 @@ function ChatSession({ apiPort }: { apiPort: number }) {
       parts: [{ type: 'text', text: content }],
     });
   }, [sendMessage, isLoading]);
+
+  // Voice Control Integration (Realtime API handles voice directly)
+  const { lastCommand, resetCommand, isVoiceModeEnabled } = useVoiceControl();
+
+  useEffect(() => {
+    if (lastCommand && !isLoading) {
+      console.log('🎤 [Voice] Command received:', lastCommand);
+      const command = lastCommand.toLowerCase().trim();
+      // Extended Thai approval keywords
+      const approveKeywords = ['approve', 'accept', 'yes', 'confirm', 'run', 'ok', 'okay', 'ตกลง', 'ใช่', 'ยืนยัน', 'ทำเลย', 'จัดการ', 'เอา', 'ได้', 'ลุย', 'โอเค', 'เลย', 'ดำเนินการ'];
+      const denyKeywords = ['deny', 'reject', 'no', 'cancel', 'stop', 'ยกเลิก', 'ไม่', 'หยุด', 'ไม่เอา', 'ไม่ต้อง', 'ไม่ใช่'];
+
+      // Check for pending approval inputs
+      // Match EXACTLY how ToolResultRenderer detects approvals
+      const lastMsg = messages[messages.length - 1];
+      console.log('🎤 [Voice] Last message role:', lastMsg?.role);
+      
+      let pendingApprovalId: string | undefined;
+      
+      if (lastMsg?.role === 'assistant' && lastMsg.parts) {
+          console.log('🎤 [Voice] Inspecting parts:', JSON.stringify(lastMsg.parts, null, 2));
+          // Match ToolResultRenderer logic: type === 'tool-approval-request' OR state === 'approval-requested'
+          const approvalPart = lastMsg.parts.find((p: any) => 
+            p.type === 'tool-approval-request' || p.state === 'approval-requested'
+          );
+          if (approvalPart) {
+              // Match ToolResultRenderer: approvalId || approval?.id
+              pendingApprovalId = (approvalPart as any).approvalId || (approvalPart as any).approval?.id;
+              console.log('🎤 [Voice] Found pending approvalId:', pendingApprovalId);
+          }
+      }
+
+      if (pendingApprovalId) {
+        if (approveKeywords.some(k => command.includes(k))) {
+           console.log('🎤 [Voice] Approving:', pendingApprovalId);
+           addToolApprovalResponse({ id: pendingApprovalId, approved: true });
+           resetCommand();
+           return;
+        }
+        if (denyKeywords.some(k => command.includes(k))) {
+           console.log('🎤 [Voice] Denying:', pendingApprovalId);
+           addToolApprovalResponse({ id: pendingApprovalId, approved: false });
+           resetCommand();
+           return;
+        }
+        // IMPORTANT: If there's a pending approval but command doesn't match,
+        // DO NOT send as text message - just ignore to prevent breaking tool state
+        console.log('🎤 [Voice] Ignoring unrecognized command during pending approval:', command);
+        resetCommand();
+        return;
+      } else {
+          console.log('🎤 [Voice] No pending approval found.');
+      }
+
+      // Default: Send as text message
+      console.log('🎤 [Voice] Sending as text message...');
+      sendMessage({
+        role: 'user',
+        parts: [{ type: 'text', text: lastCommand }],
+      });
+      resetCommand();
+    }
+  }, [lastCommand, isLoading, sendMessage, resetCommand, messages, addToolApprovalResponse]);
 
   return (
     <div className="flex h-full w-full overflow-hidden p-4 gap-4 pb-0 md:pb-4 relative">

@@ -2,6 +2,7 @@
 
 import { Send } from 'lucide-react';
 import { RefObject } from 'react';
+import { VoiceToggle } from '../voice/VoiceToggle';
 
 interface ChatInputAreaProps {
   inputVal: string;
@@ -31,13 +32,16 @@ export function ChatInputArea({
           onChange={(e) => setInputVal(e.target.value)}
           placeholder="Describe a file task... (or drop files here)"
         />
-        <button
-          type="submit"
-          disabled={isLoading || !inputVal.trim()}
-          className="absolute right-3 top-3 p-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20 no-drag"
-        >
-          <Send size={16} />
-        </button>
+        <div className="absolute right-3 top-3 flex items-center gap-2">
+            <VoiceToggle />
+            <button
+              type="submit"
+              disabled={isLoading || !inputVal.trim()}
+              className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20 no-drag"
+            >
+              <Send size={16} />
+            </button>
+        </div>
       </form>
     </div>
   );

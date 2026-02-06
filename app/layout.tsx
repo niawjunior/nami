@@ -4,6 +4,7 @@ import './globals.css'
 import { cn } from '@/lib/utils'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ThemeProvider } from './components/ThemeProvider'
+import { VoiceControlProvider } from './components/voice/VoiceControlProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,12 +22,14 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={cn(inter.className, "bg-background text-foreground antialiased h-screen w-screen overflow-hidden flex flex-col")}>
         <ThemeProvider>
-          <div className="titlebar" />
-          <div className="flex-1 overflow-hidden pt-10">
-              <ErrorBoundary>
-                {children}
-              </ErrorBoundary>
-          </div>
+          <VoiceControlProvider>
+            <div className="titlebar" />
+            <div className="flex-1 overflow-hidden pt-10">
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
+            </div>
+          </VoiceControlProvider>
         </ThemeProvider>
       </body>
     </html>
